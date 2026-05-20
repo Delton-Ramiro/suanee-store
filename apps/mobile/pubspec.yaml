@@ -1,0 +1,47 @@
+name: ecommerce_mobile
+description: E-Commerce mobile app for Android and iOS.
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.2.0 <4.0.0"
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  # HTTP & API
+  dio: ^5.4.0
+  # State management
+  flutter_riverpod: ^2.4.10
+  # Local storage
+  shared_preferences: ^2.2.3
+  flutter_secure_storage: ^9.0.0
+  # Google Sign-In
+  google_sign_in: ^6.2.1
+  # Firebase (FCM)
+  firebase_core: ^2.27.0
+  firebase_messaging: ^14.7.19
+  # Real-time chat
+  socket_io_client: ^2.0.3+1
+  # Image
+  cached_network_image: ^3.3.1
+  image_picker: ^1.0.7
+  # Navigation
+  go_router: ^13.2.0
+  # Utils
+  uuid: ^4.3.3
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.8
+  riverpod_generator: ^2.3.11
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/

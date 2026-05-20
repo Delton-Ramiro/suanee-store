@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Brand Colours ─────────────────────── */
+  --color-primary:      #023337;   /* deep teal — page titles, big numbers  */
+  --color-navy:         #101c48;   /* dark navy — active nav, dark buttons  */
+  --color-accent:       #356e99;   /* mid blue  — border accents            */
+
+  /* ── Status ────────────────────────────── */
+  --color-success:      #21c45d;
+  --color-warning:      #ff8d28;
+  --color-danger:       #ef4444;
+
+  /* ── Text ──────────────────────────────── */
+  --color-text-dark:       #23272e;
+  --color-text-body:       #425466;
+  --color-text-muted:      #6a717f;
+  --color-text-subtle:     #8b909a;
+  --color-text-table-head: #8492a6;
+  --color-text-white: #fff;
+
+  /* ── Surfaces ──────────────────────────── */
+  --color-bg:           #f9fafb;
+  --color-card:         #ffffff;
+  --color-checkbox-bg:    #4ea674;
+  --color-surface-hover: #f3f4f6;  /* hover backgrounds                    */
+
+  /* ── Additional text ───────────────────── */
+  --color-text-nav:   #374151;   /* nav item default text                  */
+  --color-text-label: #9ca3af;   /* section labels, muted icons            */
+
+  /* ── Borders ───────────────────────────── */
+  --color-border:       #d1d1d1;
+  --color-border-light: #e5e7eb;
+  --color-divider:      #dbdade;
+
+  /* ── Toggle ────────────────────────────── */
+  --color-toggle-off:   #ADADAD;   /* OFF track background          */
+  --color-toggle-knob:  #EAF8E7;   /* circle knob (both ON and OFF) */
+
+  /* ── Layout ────────────────────────────── */
+  --spacing-sidebar: 240px;
+  --spacing-header:  72px;
+
+  /* ── Shadows ───────────────────────────── */
+  --shadow-card: 0px 1px 3px 0px rgba(0,0,0,0.20);
+  --shadow-sm:   0px 3px 8px -1px rgba(50,50,71,0.05), 0px 0px 1px 0px rgba(12,26,75,0.24);
+
+  /* ── Fonts ─────────────────────────────── */
+  --font-figtree: var(--font-figtree-var, 'Figtree', sans-serif);
+  --font-lato:    var(--font-lato-var,    'Lato',    sans-serif);
+  --font-inter:   var(--font-inter-var,   'Inter',   sans-serif);
+
+  /* ── Type scale (fills gaps in Tailwind's defaults) ── */
+  /* text-xs=12px, text-sm=14px, text-base=16px already provided by Tailwind */
+  --text-2xs:  0.625rem;   /* 10px — nav labels, tracking text  */
+  --text-xxs:  0.6875rem;  /* 11px — small muted text           */
+  --text-s:    0.8125rem;  /* 13px — labels, sub-nav            */
+  --text-md:   0.9375rem;  /* 15px — slightly above text-sm     */
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;    /* Firefox */
+  &::-webkit-scrollbar {
+    display: none;          /* Safari and Chrome */
+  }
+}
+
+/* ── Base resets ───────────────────────────── */
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-figtree);
+  background-color: var(--color-bg);
+  color: var(--color-text-dark);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a      { text-decoration: none; font-family: inherit; }
+button { font-family: inherit; }
+
+/* Hide number input spin buttons */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+/* ── Shimmer skeleton ──────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-hover) 25%,
+    var(--color-border-light)  50%,
+    var(--color-surface-hover) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}

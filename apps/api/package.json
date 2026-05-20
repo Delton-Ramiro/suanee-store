@@ -1,0 +1,49 @@
+{
+  "name": "@ecommerce/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "type-check": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "tsx prisma/reset.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.758.0",
+    "@aws-sdk/s3-request-presigner": "^3.758.0",
+    "@ecommerce/types": "*",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/jwt": "^9.0.3",
+    "@fastify/rate-limit": "^10.2.2",
+    "@fastify/swagger": "^9.4.2",
+    "@fastify/swagger-ui": "^5.2.3",
+    "@fastify/websocket": "^11.0.2",
+    "@prisma/client": "^6.5.0",
+    "bullmq": "^5.34.8",
+    "fastify": "^5.2.1",
+    "fastify-plugin": "^5.0.1",
+    "firebase-admin": "^13.2.0",
+    "google-auth-library": "^9.15.1",
+    "ioredis": "^5.6.0",
+    "nanoid": "^5.1.5",
+    "resend": "^4.2.0",
+    "zod": "^3.24.2",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.4.7",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.13.10",
+    "prisma": "^6.5.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
