@@ -12,7 +12,7 @@ async function main() {
     where: { email: "admin@ecommerce.mz" },
   });
   if (!existingAdmin) {
-    const passwordHash = await bcrypt.hash("changeme123", 12);
+    const passwordHash = await bcrypt.hash("changeMe123", 12);
     await prisma.adminUser.create({
       data: {
         name: "Super Admin",
@@ -22,7 +22,7 @@ async function main() {
         isActive: true,
       },
     });
-    console.log("Super admin created: admin@ecommerce.mz / changeme123");
+    console.log("Super admin created: admin@ecommerce.mz / changeMe123");
   } else {
     console.log("Super admin already exists");
   }

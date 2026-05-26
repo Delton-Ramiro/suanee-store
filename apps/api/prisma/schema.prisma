@@ -193,7 +193,7 @@ model Category {
   imageUrl    String?
   iconUrl     String?
   genderScope GenderScope?
-  position    Int          @default(0)
+  position    Int          @default(1)
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

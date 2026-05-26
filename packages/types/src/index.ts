@@ -55,7 +55,7 @@ export const CreateCategorySchema = z.object({
   imageUrl: z.string().url().optional(),
   iconUrl: z.string().url().optional(),
   genderScope: GenderScope.optional(),
-  position: z.number().int().default(0),
+  position: z.number().int().min(1).default(1),
   isActive: z.boolean().default(true),
 });
 

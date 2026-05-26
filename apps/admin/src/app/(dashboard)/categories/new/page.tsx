@@ -111,7 +111,7 @@ export default function NewCategoryPage() {
 
   // Form fields
   const [name, setName] = useState("");
-  const [position, setPosition] = useState("0");
+  const [position, setPosition] = useState("1");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   // Pre-populate when coming from a "Adicionar sub-categoria" button
@@ -140,6 +140,22 @@ export default function NewCategoryPage() {
   const l1Cats = allCats ?? []; // L1 root categories
   const selectedL1Cat = l1Cats.find((c) => c.id === selectedL1) ?? null;
   const l2Children = selectedL1Cat?.children ?? []; // L2 children of chosen L1
+  const selectedL2Cat = l2Children.find((c) => c.id === selectedL2) ?? null;
+  const l3Children = selectedL2Cat?.children ?? []; // L3 children of chosen L2
+
+  const occupiedPositions =
+    level === 1
+      ? new Set(l1Cats.map((c) => c.position))
+      : level === 2
+        ? new Set(l2Children.map((c) => c.position))
+        : new Set(l3Children.map((c) => c.position));
+
+  const positionOptions = Array.from({ length: 21 }, (_, i) => i + 1)
+    .filter((i) => !occupiedPositions.has(i))
+    .map((i) => ({
+      value: String(i),
+      label: String(i),
+    }));
 
   // ── Toggle handlers ─────────────────────────────────────────────────────
   function handlePrincipalToggle(v: boolean) {
@@ -174,6 +190,14 @@ export default function NewCategoryPage() {
     setSelectedL2(""); // reset L2 when L1 changes
   }
 
+  useEffect(() => {
+    if (positionOptions.length === 0) return;
+    const stillValid = positionOptions.some((opt) => opt.value === position);
+    if (!stillValid) {
+      setPosition(positionOptions[0].value);
+    }
+  }, [positionOptions, position]);
+
   // ── Mutation ─────────────────────────────────────────────────────────────
   const createCategory = useCreateCategory();
 
@@ -186,6 +210,7 @@ export default function NewCategoryPage() {
   const canSubmit =
     !createCategory.isPending &&
     name.trim().length > 0 &&
+    positionOptions.length > 0 &&
     (level === 1 ? imageUrl !== null : true) &&
     (level >= 2 ? selectedL1 !== "" : true) &&
     (level === 3 ? selectedL2 !== "" : true);
@@ -212,7 +237,7 @@ export default function NewCategoryPage() {
         slug: slugParts.join("-"),
         level: apiLevel,
         parentId: effectiveParentId,
-        position: level <= 2 ? parseInt(position) || 0 : 0,
+        position: parseInt(position) || 1,
         isActive: true,
         imageUrl: level === 1 ? imageUrl : undefined,
       });
@@ -229,11 +254,6 @@ export default function NewCategoryPage() {
       </div>
     );
   }
-
-  const positionOptions = Array.from({ length: 21 }, (_, i) => ({
-    value: String(i),
-    label: String(i),
-  }));
 
   return (
     <form
@@ -299,15 +319,23 @@ export default function NewCategoryPage() {
             placeholder="Nome da categoria"
           />
 
-          {/* ④ Exhibition index — L1 and L2 only */}
-          {level <= 2 && (
-            <Select
-              label="Índice de exibição"
-              value={position}
-              onChange={setPosition}
-              options={positionOptions}
-            />
-          )}
+          {/* ④ Exhibition index — blocked when occupied in current scope */}
+          <Select
+            label="Índice de exibição"
+            value={position}
+            onChange={setPosition}
+            options={positionOptions}
+            disabled={
+              positionOptions.length === 0 ||
+              (level === 2 && !selectedL1) ||
+              (level === 3 && !selectedL2)
+            }
+            placeholder={
+              positionOptions.length > 0
+                ? "Selecionar índice…"
+                : "Sem índices disponíveis"
+            }
+          />
 
           {/* ⑤ Toggles */}
           <div className="flex flex-col gap-1 pt-2">
