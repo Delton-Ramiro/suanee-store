@@ -12,8 +12,6 @@
   /* ── Text ──────────────────────────────────────────────── */
   /* Figma: "Dark Color"                                      */
   --color-text-dark:     #000000;
-  /* Figma: sds-color-text-default-default                   */
-  --color-text-body:     #1e1e1e;
   /* Figma: "Neutal/500"                                     */
   --color-text-muted:    #6a717f;
   /* Figma: sds-color-text-default-secondary                 */
@@ -96,7 +94,7 @@ html, body { height: 100%; }
 body {
   font-family: var(--font-figtree);
   background-color: var(--color-bg);
-  color: var(--color-text-body);
+  color: var(--color-brand);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
