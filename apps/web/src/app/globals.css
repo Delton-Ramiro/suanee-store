@@ -50,8 +50,8 @@
 
   /* ── Layout constants ──────────────────────────────────── */
   --spacing-nav:          98px;   /* navigation bar height  */
-  --spacing-max-w:        1440px; /* max page width         */
-  --spacing-container-px: 50px;   /* horizontal page gutter */
+  --spacing-max-w:        1240px; /* max page width — bash.com body = 1208px content */
+  --spacing-container-px: 16px;   /* horizontal page gutter (1240 - 2×16 = 1208px) */
 
   /* ── Fonts ─────────────────────────────────────────────── */
   /* Figtree is the sole brand font for the client portal    */

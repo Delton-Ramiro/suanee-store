@@ -84,7 +84,7 @@ export default function Header() {
           {/* Left — logo */}
           <Link
             href="/"
-            className="font-bold text-[34px] tracking-[0.06em] text-brand uppercase leading-none shrink-0"
+            className="font-bold text-[22px] tracking-[0.04em] text-brand uppercase leading-none shrink-0"
           >
             SUANEE
           </Link>
