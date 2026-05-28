@@ -102,6 +102,16 @@ body {
 a      { text-decoration: none; color: inherit; font-family: inherit; }
 button { font-family: inherit; cursor: pointer; }
 
+/* ── Slide-up animation ─────────────────────────────────────── */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out forwards;
+}
+
 /* ── Shimmer skeleton ───────────────────────────────────────── */
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
@@ -119,3 +129,35 @@ button { font-family: inherit; cursor: pointer; }
   animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 4px;
 }
+
+/* ── Story viewer spin loader ───────────────────────────────── */
+@keyframes story-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes story-shimmer {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.8; }
+}
+
+.story-loader-ring {
+  animation: story-spin 0.75s linear infinite;
+}
+
+.story-loader-shimmer {
+  animation: story-shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Story slide transitions ────────────────────────────────── */
+@keyframes story-enter-right {
+  from { opacity: 0; transform: translateX(18px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)    scale(1); }
+}
+
+@keyframes story-enter-left {
+  from { opacity: 0; transform: translateX(-18px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)     scale(1); }
+}
+
+.story-enter-next { animation: story-enter-right 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.story-enter-prev { animation: story-enter-left  0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }

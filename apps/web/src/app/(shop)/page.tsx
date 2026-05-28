@@ -1,25 +1,39 @@
-import HomeCategories, { type HomeCategory } from "@/components/home/HomeCategories";
+import HomeCategories from "@/components/home/HomeCategories";
+import { HomeStories } from "@/components/home/HomeStories";
+import { apiFetch } from "@/lib/api";
+import type { Category } from "@/lib/hooks/useCategories";
+import type { Story } from "@/lib/hooks/useStory";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
-
-async function getCategories(): Promise<HomeCategory[]> {
+async function getCategories(): Promise<Category[]> {
   try {
-    const res = await fetch(`${API_BASE}/catalog/categories`, {
+    const data = await apiFetch<Category[]>("/catalog/categories", {
       next: { revalidate: 300 },
-      headers: { "ngrok-skip-browser-warning": "true" },
     });
-    if (!res.ok) return [];
-    const data: unknown = await res.json();
-    return Array.isArray(data) ? (data as HomeCategory[]) : [];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+async function getStories(): Promise<Story[]> {
+  try {
+    const data = await apiFetch<Story[]>("/stories", {
+      next: { revalidate: 120 },
+    });
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
 }
 
 export default async function HomePage() {
-  const categories = await getCategories();
+  const [categories, stories] = await Promise.all([
+    getCategories(),
+    getStories(),
+  ]);
   return (
     <div>
+      <HomeStories stories={stories} />
       <HomeCategories categories={categories} />
     </div>
   );

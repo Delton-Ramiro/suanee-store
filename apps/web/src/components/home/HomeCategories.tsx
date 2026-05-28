@@ -1,14 +1,8 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import type { Category } from "@/lib/hooks/useCategories";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export type HomeCategory = {
-  id: string;
-  name: string;
-  slug: string;
-  imageUrl?: string | null;
-};
+export type { Category as HomeCategory };
 
 // ─── Layout tokens — bash.com measured values ────────────────────────────────
 // bash.com: body = 1208px, wide card = 800px, narrow = 391px, gap = 16px
@@ -28,7 +22,7 @@ function Card({
   slug,
   imageUrl,
   className = "",
-}: HomeCategory & { className?: string }) {
+}: Category & { className?: string }) {
   return (
     <Link
       href={`/produtos?categoria=${encodeURIComponent(slug)}`}
@@ -55,7 +49,7 @@ function Card({
 
 // ─── Row type A: wide | narrow ────────────────────────────────────────────────
 
-function RowA({ items }: { items: HomeCategory[] }) {
+function RowA({ items }: { items: Category[] }) {
   if (items.length === 1)
     return (
       <div className={ROW_H}>
@@ -72,7 +66,7 @@ function RowA({ items }: { items: HomeCategory[] }) {
 
 // ─── Row type B: narrow | wide ────────────────────────────────────────────────
 
-function RowB({ items }: { items: HomeCategory[] }) {
+function RowB({ items }: { items: Category[] }) {
   if (items.length === 1)
     return (
       <div className={ROW_H}>
@@ -89,7 +83,7 @@ function RowB({ items }: { items: HomeCategory[] }) {
 
 // ─── Row type C: stacked-pair (narrow) | side-by-side (wide) ─────────────────
 
-function RowC({ items }: { items: HomeCategory[] }) {
+function RowC({ items }: { items: Category[] }) {
   if (items.length === 1)
     return (
       <div className={ROW_H}>
@@ -137,10 +131,10 @@ function RowC({ items }: { items: HomeCategory[] }) {
 const ROW_COMPONENTS = [RowA, RowB, RowC] as const;
 const ROW_SIZES = [2, 2, 4] as const;
 
-function buildRows(cats: HomeCategory[]) {
+function buildRows(cats: Category[]) {
   const rows: {
     Row: (typeof ROW_COMPONENTS)[number];
-    items: HomeCategory[];
+    items: Category[];
   }[] = [];
   let i = 0,
     step = 0;
@@ -161,7 +155,7 @@ function buildRows(cats: HomeCategory[]) {
 export default function HomeCategories({
   categories,
 }: {
-  categories: HomeCategory[];
+  categories: Category[];
 }) {
   const rows = buildRows(categories);
   if (rows.length === 0) return null;

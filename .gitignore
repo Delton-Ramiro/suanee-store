@@ -11,3 +11,4 @@ coverage
 *.md
 test_data
 docs
+.next

@@ -10,7 +10,7 @@ export default function ShopLayout({
     <>
       <Header />
       {/* pt-[98px] = header height so content is never behind the fixed nav */}
-      <main className="min-h-screen pt-[var(--spacing-nav)] container-web bg-bg">
+      <main className="min-h-screen pt-[var(--spacing-nav)] container-web">
         {children}
       </main>
       <Footer />

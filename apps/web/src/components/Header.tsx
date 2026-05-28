@@ -1,18 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Search, Heart, User, ShoppingBag, Menu, X } from "lucide-react";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
-
-type NavCategory = {
-  id: string;
-  name: string;
-  slug: string;
-  position: number;
-};
+import { useCategories } from "@/lib/hooks/useCategories";
 
 /* ─── Icon sizes ──────────────────────────────────────────────── */
 const iconCls = "w-[22px] h-[22px] stroke-[1.5]";
@@ -48,33 +39,10 @@ function IconBtn({
 /* ─── Component ───────────────────────────────────────────────── */
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [categories, setCategories] = useState<NavCategory[]>([]);
-
-  useEffect(() => {
-    let ignore = false;
-    async function load() {
-      try {
-        const res = await fetch(`${API_BASE}/catalog/categories`, {
-          headers: { "ngrok-skip-browser-warning": "true" },
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as NavCategory[];
-        if (!ignore) {
-          setCategories(
-            (Array.isArray(data) ? data : [])
-              .filter((c) => !!c?.slug && !!c?.name)
-              .sort((a, b) => a.position - b.position),
-          );
-        }
-      } catch {
-        // silent
-      }
-    }
-    void load();
-    return () => {
-      ignore = true;
-    };
-  }, []);
+  const { data } = useCategories();
+  const categories = (data ?? [])
+    .filter((c) => !!c?.slug && !!c?.name)
+    .sort((a, b) => a.position - b.position);
 
   return (
     <>
