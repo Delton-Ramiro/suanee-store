@@ -93,7 +93,7 @@ html, body { height: 100%; }
 
 body {
   font-family: var(--font-figtree);
-  background-color: var(--color-bg);
+  background-color: var(--color-white);
   color: var(--color-brand);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
