@@ -1,5 +1,6 @@
 node_modules
 dist
+.github
 .env
 .env.example
 .env.local
@@ -10,4 +11,4 @@ coverage
 *.md
 test_data
 docs
-*md
+.next

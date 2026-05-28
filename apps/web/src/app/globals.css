@@ -1,0 +1,163 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Brand ─────────────────────────────────────────────── */
+  /* Figma: "Asics color" — logo, headings, nav text         */
+  --color-brand:         #101c48;
+  /* Figma: "Primary Color" — buttons, active states         */
+  --color-primary:       #10578e;
+  /* Figma: "Sub Primary Color" — links, accents             */
+  --color-accent:        #356e99;
+
+  /* ── Text ──────────────────────────────────────────────── */
+  /* Figma: "Dark Color"                                      */
+  --color-text-dark:     #000000;
+  /* Figma: "Neutal/500"                                     */
+  --color-text-muted:    #6a717f;
+  /* Figma: sds-color-text-default-secondary                 */
+  --color-text-subtle:   #757575;
+  /* Figma: sds-color-text-default-tertiary                  */
+  --color-text-light:    #b3b3b3;
+
+  /* ── Surfaces ──────────────────────────────────────────── */
+  /* Figma: "Background Color"                               */
+  --color-bg:            #f3f3f3;
+  --color-card:          #ffffff;
+  /* Figma: "White Color"                                    */
+  --color-white:         #ffffff;
+  /* Figma: "Background - 2" — disabled, placeholder bg     */
+  --color-muted-bg:      #adadad;
+  /* Footer background                                       */
+  --color-footer-bg:     #0d0d0d;
+  /* Hover surface                                           */
+  --color-surface-hover: #ebebeb;
+
+  /* ── Footer-specific ───────────────────────────────────── */
+  /* Muted link text on dark footer background               */
+  --color-footer-link:    #9ca3af;
+  /* Copyright / caption text in footer                     */
+  --color-footer-caption: #4b5563;
+
+  /* ── Borders ───────────────────────────────────────────── */
+  /* Figma: sds-color-border-default-default                 */
+  --color-border:        #d9d9d9;
+  --color-border-light:  #e8e8e8;
+
+  /* ── Status ────────────────────────────────────────────── */
+  --color-success:       #21c45d;
+  --color-warning:       #ff8d28;
+  --color-danger:        #ef4444;
+
+  /* ── Layout constants ──────────────────────────────────── */
+  --spacing-nav:          98px;   /* navigation bar height  */
+  --spacing-max-w:        1240px; /* max page width — bash.com body = 1208px content */
+  --spacing-container-px: 16px;   /* horizontal page gutter (1240 - 2×16 = 1208px) */
+
+  /* ── Fonts ─────────────────────────────────────────────── */
+  /* Figtree is the sole brand font for the client portal    */
+  --font-figtree: var(--font-figtree-var, 'Figtree', sans-serif);
+
+  /* ── Type scale — from Figma ───────────────────────────── */
+  /* H1 48px | H2 38px | H3 30px | H4 24px | H5 19px | H6 13px | P 16px */
+  --text-h1: 3rem;        /* 48px */
+  --text-h2: 2.375rem;    /* 38px */
+  --text-h3: 1.875rem;    /* 30px */
+  --text-h4: 1.5rem;      /* 24px */
+  --text-h5: 1.1875rem;   /* 19px */
+  --text-h6: 0.8125rem;   /* 13px */
+  --text-xs: 0.75rem;     /* 12px */
+
+  /* ── Shadows ───────────────────────────────────────────── */
+  --shadow-nav:  0 1px 3px 0 rgba(0,0,0,0.08);
+  --shadow-card: 0 1px 3px 0 rgba(0,0,0,0.10);
+}
+
+/* ── Container utility ──────────────────────────────────────── */
+@utility container-web {
+  width: 100%;
+  max-width: var(--spacing-max-w);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--spacing-container-px);
+  padding-right: var(--spacing-container-px);
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-figtree);
+  background-color: var(--color-white);
+  color: var(--color-brand);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a      { text-decoration: none; color: inherit; font-family: inherit; }
+button { font-family: inherit; cursor: pointer; }
+
+/* ── Slide-up animation ─────────────────────────────────────── */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out forwards;
+}
+
+/* ── Shimmer skeleton ───────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-hover) 25%,
+    var(--color-border-light)  50%,
+    var(--color-surface-hover) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* ── Story viewer spin loader ───────────────────────────────── */
+@keyframes story-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes story-shimmer {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.8; }
+}
+
+.story-loader-ring {
+  animation: story-spin 0.75s linear infinite;
+}
+
+.story-loader-shimmer {
+  animation: story-shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Story slide transitions ────────────────────────────────── */
+@keyframes story-enter-right {
+  from { opacity: 0; transform: translateX(18px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)    scale(1); }
+}
+
+@keyframes story-enter-left {
+  from { opacity: 0; transform: translateX(-18px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)     scale(1); }
+}
+
+.story-enter-next { animation: story-enter-right 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.story-enter-prev { animation: story-enter-left  0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }

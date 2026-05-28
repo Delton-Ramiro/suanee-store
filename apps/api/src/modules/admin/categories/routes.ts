@@ -25,7 +25,91 @@ const CategoryProductsQuery = z.object({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
+type PositionScopeInput = {
+  level: number;
+  parentId: string | null;
+  position: number;
+  excludeId?: string;
+};
+
+type CategoryValidationError = {
+  status: 404 | 409 | 422;
+  error: string;
+};
+
 export default async function adminCategoriesRoutes(fastify: FastifyInstance) {
+  async function ensureParentHierarchy(
+    level: number,
+    parentId: string | null,
+  ): Promise<CategoryValidationError | null> {
+    if (level === 0) {
+      if (parentId) {
+        return {
+          status: 422,
+          error: "A level 0 category cannot have a parent",
+        };
+      }
+      return null;
+    }
+
+    if (!parentId) {
+      return {
+        status: 422,
+        error: `A level ${level} category must have a parent`,
+      };
+    }
+
+    const parent = await prisma.category.findUnique({
+      where: { id: parentId },
+    });
+    if (!parent) {
+      return { status: 404, error: "Parent category not found" };
+    }
+
+    if (parent.level !== level - 1) {
+      return {
+        status: 422,
+        error: `A level ${level} category must have a level ${level - 1} parent`,
+      };
+    }
+
+    return null;
+  }
+
+  async function ensurePositionAvailable({
+    level,
+    parentId,
+    position,
+    excludeId,
+  }: PositionScopeInput): Promise<CategoryValidationError | null> {
+    if (position < 1) {
+      return {
+        status: 422,
+        error: "Índice de exibição deve ser maior ou igual a 1.",
+      };
+    }
+
+    const conflict = await prisma.category.findFirst({
+      where: {
+        level,
+        parentId,
+        position,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (conflict) {
+      return {
+        status: 409,
+        error:
+          "Índice de exibição já ocupado para este nível e parente. Escolha outro índice.",
+      };
+    }
+
+    return null;
+  }
+
   // GET /admin/categories — full tree
   fastify.get("/", {
     preHandler: [fastify.authenticateAdmin],
@@ -118,6 +202,7 @@ export default async function adminCategoriesRoutes(fastify: FastifyInstance) {
           slug: { type: "string", example: "footwear" },
           level: { type: "integer", minimum: 0, maximum: 2, example: 0 },
           parentId: { type: "string", format: "uuid", nullable: true },
+          position: { type: "integer", minimum: 1, example: 1 },
           imageUrl: { type: "string", nullable: true },
           genderScope: {
             type: "string",
@@ -139,6 +224,11 @@ export default async function adminCategoriesRoutes(fastify: FastifyInstance) {
           type: "object",
           properties: { error: { type: "string" } },
         },
+        409: {
+          description: "Position already occupied in this scope",
+          type: "object",
+          properties: { error: { type: "string" } },
+        },
         401: {
           description: "Unauthorized",
           type: "object",
@@ -148,18 +238,24 @@ export default async function adminCategoriesRoutes(fastify: FastifyInstance) {
     },
     handler: async (req, reply) => {
       const body = CreateCategorySchema.parse(req.body);
+      const parentId = body.parentId ?? null;
 
-      if (body.parentId) {
-        const parent = await prisma.category.findUnique({
-          where: { id: body.parentId },
-        });
-        if (!parent)
-          return reply.status(404).send({ error: "Parent category not found" });
-        if (parent.level !== body.level - 1) {
-          return reply.status(422).send({
-            error: `A level ${body.level} category must have a level ${body.level - 1} parent`,
-          });
-        }
+      const hierarchyError = await ensureParentHierarchy(body.level, parentId);
+      if (hierarchyError) {
+        return reply
+          .status(hierarchyError.status)
+          .send({ error: hierarchyError.error });
+      }
+
+      const positionError = await ensurePositionAvailable({
+        level: body.level,
+        parentId,
+        position: body.position,
+      });
+      if (positionError) {
+        return reply
+          .status(positionError.status)
+          .send({ error: positionError.error });
       }
 
       const category = await prisma.category.create({ data: body });
@@ -190,8 +286,11 @@ export default async function adminCategoriesRoutes(fastify: FastifyInstance) {
       body: {
         type: "object",
         properties: {
+          level: { type: "integer", minimum: 0, maximum: 2 },
+          parentId: { type: "string", format: "uuid", nullable: true },
           name: { type: "string" },
           slug: { type: "string" },
+          position: { type: "integer", minimum: 1 },
           imageUrl: { type: "string", nullable: true },
           genderScope: {
             type: "string",
@@ -208,6 +307,11 @@ export default async function adminCategoriesRoutes(fastify: FastifyInstance) {
           type: "object",
           properties: { error: { type: "string" } },
         },
+        409: {
+          description: "Position already occupied in this scope",
+          type: "object",
+          properties: { error: { type: "string" } },
+        },
         401: {
           description: "Unauthorized",
           type: "object",
@@ -221,6 +325,33 @@ export default async function adminCategoriesRoutes(fastify: FastifyInstance) {
         where: { id: req.params.id },
       });
       if (!before) return reply.status(404).send({ error: "Not found" });
+
+      const nextLevel = body.level ?? before.level;
+      const nextParentId =
+        body.parentId === undefined ? before.parentId : (body.parentId ?? null);
+      const nextPosition = body.position ?? before.position;
+
+      const hierarchyError = await ensureParentHierarchy(
+        nextLevel,
+        nextParentId,
+      );
+      if (hierarchyError) {
+        return reply
+          .status(hierarchyError.status)
+          .send({ error: hierarchyError.error });
+      }
+
+      const positionError = await ensurePositionAvailable({
+        level: nextLevel,
+        parentId: nextParentId,
+        position: nextPosition,
+        excludeId: before.id,
+      });
+      if (positionError) {
+        return reply
+          .status(positionError.status)
+          .send({ error: positionError.error });
+      }
 
       // Delete old R2 image when it is being replaced with a different one
       if (

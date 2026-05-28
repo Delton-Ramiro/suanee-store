@@ -36,7 +36,7 @@ export const PaginatedResponse = (itemSchema) => z.object({
 // ─── Category ─────────────────────────────────────────────────────────────────
 export const CreateCategorySchema = z.object({
     parentId: z.string().uuid().optional(),
-    level: z.number().int().min(1).max(3),
+    level: z.number().int().min(0).max(2),
     name: z.string().min(1).max(100),
     slug: z
         .string()
@@ -47,7 +47,7 @@ export const CreateCategorySchema = z.object({
     imageUrl: z.string().url().optional(),
     iconUrl: z.string().url().optional(),
     genderScope: GenderScope.optional(),
-    position: z.number().int().default(0),
+    position: z.number().int().min(1).default(1),
     isActive: z.boolean().default(true),
 });
 export const UpdateCategorySchema = CreateCategorySchema.partial();
