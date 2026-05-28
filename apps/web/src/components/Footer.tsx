@@ -1,7 +1,16 @@
-import Link from "next/link";
-import { CreditCard, Truck, Globe, Headphones } from "lucide-react";
+"use client";
 
-/* ─── Social icons (inline SVG — brand icons) ────────────────── */
+import { useState } from "react";
+import Link from "next/link";
+import {
+  CreditCard,
+  Truck,
+  Globe,
+  Headphones,
+  ChevronDown,
+} from "lucide-react";
+
+/* ─── Social icons ───────────────────────────────────────────── */
 function FacebookIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -14,7 +23,6 @@ function FacebookIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function TikTokIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -27,7 +35,6 @@ function TikTokIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function InstagramIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -40,7 +47,6 @@ function InstagramIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
 function PinterestIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -54,7 +60,7 @@ function PinterestIcon({ className }: { className?: string }) {
   );
 }
 
-/* ─── Trust items ─────────────────────────────────────────────── */
+/* ─── Data ───────────────────────────────────────────────────── */
 const TRUST_ITEMS = [
   { icon: CreditCard, label: "Pagamento seguro" },
   { icon: Truck, label: "Entrega ao domicílio" },
@@ -62,8 +68,7 @@ const TRUST_ITEMS = [
   { icon: Headphones, label: "Atendimento ao cliente" },
 ];
 
-/* ─── Footer link columns ─────────────────────────────────────── */
-const CATEGORIES = [
+const LOJA = [
   { href: "/produtos?genero=homem", label: "Homem" },
   { href: "/produtos?genero=mulher", label: "Mulher" },
   { href: "/produtos?categoria=joias", label: "Joias" },
@@ -105,16 +110,22 @@ const SOCIALS = [
   { href: "https://pinterest.com", label: "Pinterest", Icon: PinterestIcon },
 ];
 
-/* ─── Column heading ──────────────────────────────────────────── */
+const PAYMENT_LOGOS = [
+  { src: "/financial-logos/visa.png", alt: "Visa" },
+  { src: "/financial-logos/mastercard.png", alt: "Mastercard" },
+  { src: "/financial-logos/mpesa.png", alt: "M-Pesa" },
+  { src: "/financial-logos/emola.png", alt: "e-Mola" },
+];
+
+/* ─── Helpers ────────────────────────────────────────────────── */
 function ColHeading({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-white font-semibold text-sm mb-4 tracking-wide">
+    <p className="text-white font-bold text-sm mb-4 tracking-wide">
       {children}
     </p>
   );
 }
 
-/* ─── Column link ─────────────────────────────────────────────── */
 function ColLink({
   href,
   children,
@@ -125,14 +136,38 @@ function ColLink({
   return (
     <Link
       href={href}
-      className="block text-footer-link text-sm font-normal hover:text-white transition-colors duration-150 mb-2.5"
+      className="block text-white text-sm font-normal hover:text-white transition-colors duration-150 mb-2.5"
     >
       {children}
     </Link>
   );
 }
 
-/* ─── Component ───────────────────────────────────────────────── */
+function AccordionSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-white/10">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between py-4 text-white font-semibold text-sm text-left"
+      >
+        {title}
+        <ChevronDown
+          className={`w-5 h-5 text-white/60 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && <div className="pb-4">{children}</div>}
+    </div>
+  );
+}
+
+/* ─── Component ──────────────────────────────────────────────── */
 export default function Footer() {
   return (
     <footer className="bg-footer-bg">
@@ -151,25 +186,21 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* ── Divider ───────────────────────────────────────── */}
       <div className="container-web">
-        <hr className="border-white/10" />
+        <hr className="border-accent/40" />
       </div>
 
-      {/* ── Link columns ──────────────────────────────────── */}
-      <div className="container-web py-12">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-10">
-          {/* Categorias */}
+      {/* ── Desktop link columns ───────────────────────────── */}
+      <div className="container-web py-12 hidden md:block">
+        <div className="grid grid-cols-3 lg:grid-cols-5 gap-10 text-white">
           <div>
-            <ColHeading>Categorias</ColHeading>
-            {CATEGORIES.map((l) => (
+            <ColHeading>Loja</ColHeading>
+            {LOJA.map((l) => (
               <ColLink key={l.href} href={l.href}>
                 {l.label}
               </ColLink>
             ))}
           </div>
-
-          {/* Marcas */}
           <div>
             <ColHeading>Marcas</ColHeading>
             {BRANDS.map((l) => (
@@ -178,8 +209,6 @@ export default function Footer() {
               </ColLink>
             ))}
           </div>
-
-          {/* Políticas */}
           <div>
             <ColHeading>Políticas</ColHeading>
             {POLICIES.map((l) => (
@@ -188,8 +217,6 @@ export default function Footer() {
               </ColLink>
             ))}
           </div>
-
-          {/* Ajuda e contacto */}
           <div>
             <ColHeading>Ajuda e contacto</ColHeading>
             {HELP.map((l) => (
@@ -197,13 +224,11 @@ export default function Footer() {
                 {l.label}
               </ColLink>
             ))}
-            <p className="text-text-muted text-xs leading-relaxed mt-4">
+            <p className="text-footer-link text-xs leading-relaxed mt-4">
               A nossa equipa de apoio ao cliente está disponível de segunda a
               sábado, das 8h às 18h.
             </p>
           </div>
-
-          {/* Segue-nos */}
           <div>
             <ColHeading>Segue-nos</ColHeading>
             <div className="flex flex-col gap-3">
@@ -224,61 +249,88 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* ── Payment methods ───────────────────────────────── */}
-      <div className="container-web">
-        <hr className="border-white/10" />
-        <div className="py-6 flex flex-wrap items-center gap-6">
-          {/* VISA */}
-          <span className="text-white font-black text-xl italic tracking-wider">
-            VISA
-          </span>
-          {/* Mastercard — simplified circles */}
-          <div className="flex items-center -space-x-2">
-            <div className="w-7 h-7 rounded-full bg-[#eb001b]" />
-            <div className="w-7 h-7 rounded-full bg-[#f79e1b] opacity-90" />
+      {/* ── Mobile accordion ──────────────────────────────── */}
+      <div className="container-web pt-4 pb-2 md:hidden text-white">
+        <AccordionSection title="Loja">
+          {LOJA.map((l) => (
+            <ColLink key={l.href} href={l.href}>
+              {l.label}
+            </ColLink>
+          ))}
+        </AccordionSection>
+        <AccordionSection title="Marcas">
+          {BRANDS.map((l) => (
+            <ColLink key={l.href} href={l.href}>
+              {l.label}
+            </ColLink>
+          ))}
+        </AccordionSection>
+        <AccordionSection title="Políticas">
+          {POLICIES.map((l) => (
+            <ColLink key={l.href} href={l.href}>
+              {l.label}
+            </ColLink>
+          ))}
+        </AccordionSection>
+        <AccordionSection title="Ajuda e contacto">
+          {HELP.map((l) => (
+            <ColLink key={l.href} href={l.href}>
+              {l.label}
+            </ColLink>
+          ))}
+          <p className="text-footer-link text-xs leading-relaxed mt-3">
+            A nossa equipa de apoio ao cliente está disponível de segunda a
+            sábado, das 8h às 18h.
+          </p>
+        </AccordionSection>
+
+        {/* Mobile socials — icon-only row */}
+        <div className="py-5">
+          <p className="text-white font-semibold text-sm mb-4">Segue-nos</p>
+          <div className="flex items-center gap-5">
+            {SOCIALS.map(({ href, label, Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={label}
+                className="text-footer-link hover:text-white transition-colors duration-150"
+              >
+                <Icon className="w-5 h-5" />
+              </a>
+            ))}
           </div>
-          {/* M-Pesa */}
-          <span className="text-[#e11916] font-bold text-sm tracking-wide bg-white px-2 py-0.5 rounded">
-            M-Pesa
-          </span>
-          {/* e-Mola */}
-          <span className="text-white font-bold text-sm tracking-wide border border-white/30 px-2 py-0.5 rounded">
-            e-Mola
-          </span>
+        </div>
+      </div>
+
+      {/* ── Payment logos ──────────────────────────────────── */}
+      <div className="container-web">
+        <div className="py-6 flex justify-start md:justify-end items-center gap-6 md:gap-8">
+          {PAYMENT_LOGOS.map(({ src, alt }) => (
+            <img
+              key={alt}
+              src={src}
+              alt={alt}
+              className="h-6 w-auto object-contain"
+            />
+          ))}
         </div>
       </div>
 
       {/* ── Bottom bar ────────────────────────────────────── */}
       <div className="container-web">
-        <hr className="border-white/10" />
-        <div className="py-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* Wordmark */}
-          <div className="flex items-center gap-2">
-            {/* Logo mark */}
-            <svg
-              viewBox="0 0 24 24"
-              className="w-6 h-6 fill-none stroke-white stroke-[1.5]"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
-              />
-            </svg>
+        <div className="py-6 flex flex-col items-start md:items-end justify-end gap-4">
+          <div className="flex items-center gap-2.5">
             <span className="font-black text-[22px] tracking-[0.08em] text-white uppercase font-figtree">
               SUANEE
             </span>
           </div>
-
-          {/* Copyright */}
-          <p className="text-footer-caption text-xs text-center md:text-right leading-relaxed">
+          <p className="text-footer-caption text-xs leading-relaxed md:text-right">
             © Copyright Foschini Retail Group (Pty) Ltd. All rights reserved.
             <br />
-            <span className="text-[10px]">
-              Foschini Retail Group (Pty) Ltd is a registered credit provider
-              NCRCP36 and authorised financial services provider FSP 32719.
-            </span>
+            Foschini Retail Group (Pty) Ltd is a registered credit provider
+            NCRCP36 and authorised financial services provider FSP 32719.
           </p>
         </div>
       </div>
