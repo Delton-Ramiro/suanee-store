@@ -9,7 +9,7 @@ export type { Category as HomeCategory };
 // Row height: scales from mobile up to bash.com's 400px at desktop
 const ROW_H = "h-[180px] sm:h-[220px] md:h-[320px] lg:h-[340px] xl:h-[400px]";
 // 16px gap — matches bash.com's 12-column grid gutters
-const GAP = "gap-4";
+const GAP = "gap-[5px]";
 // Wide cell: 8/12 cols ≈ 66.7% (flex-grow 2)
 const WIDE = "flex-[2_2_0%]";
 // Narrow cell: 4/12 cols ≈ 33.3% (flex-grow 1)
