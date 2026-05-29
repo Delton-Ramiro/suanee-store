@@ -42,6 +42,8 @@ import Pagination from "@/components/ui/Pagination";
 import ImageUpload from "@/components/ui/ImageUpload";
 import Toggle from "@/components/ui/Toggle";
 import CopyId from "@/components/ui/CopyId";
+import SingleSelectDropdown from "@/components/ui/SingleSelectDropdown";
+import { buildPositionOptions } from "@/lib/positions";
 import { formatDate, formatPrice } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { canManageCollections } from "@/lib/admin-access";
@@ -322,8 +324,17 @@ export default function CollectionDetailPage({
   const removeProduct = useRemoveProductFromCollection();
   const { data: categories = [] } = useCategories({ level: 0 });
   const { data: nextPositionData } = useCollectionNextPosition(
-    editIsCategorized ? (editCategoryId || null) : null,
+    isEditing ? (editIsCategorized ? (editCategoryId || null) : null) : undefined,
   );
+
+  const positionOptions = isEditing && nextPositionData
+    ? buildPositionOptions({
+        occupiedPositions: nextPositionData.occupiedPositions,
+        nextPosition: nextPositionData.nextPosition,
+        currentPosition: collection?.position ?? undefined,
+        startFrom: 1,
+      })
+    : [];
 
   if (!allowCollectionManagement) {
     return <AccessDeniedState message="A sua role não pode gerir coleções." />;
@@ -652,35 +663,22 @@ export default function CollectionDetailPage({
             )}
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-s font-medium text-text-body font-figtree">
-              Índice de exibição
-            </label>
-            <div className="relative">
-              <select
-                value={String(
-                  isEditing
-                    ? editPosition
-                    : (collection.position ?? 0),
-                )}
-                onChange={(e) =>
-                  isEditing && setEditPosition(Number(e.target.value))
-                }
-                disabled={!isEditing}
-                className="w-full appearance-none px-3 py-2.5 pr-10 rounded-lg border border-border bg-card text-text-dark text-sm font-figtree focus:outline-none focus:border-accent transition-colors disabled:bg-surface-hover disabled:cursor-default"
-              >
-                {Array.from({ length: 21 }, (_, i) => (
-                  <option key={i} value={String(i)}>
-                    {i}
-                    {isEditing && nextPositionData?.nextPosition === i && i !== collection.position ? " (próximo disponível)" : ""}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
-                <ChevronDown size={16} />
-              </div>
-            </div>
-          </div>
+          <SingleSelectDropdown
+            label="Índice de exibição"
+            options={
+              isEditing
+                ? positionOptions
+                : [
+                    {
+                      value: String(collection.position ?? 0),
+                      label: String(collection.position ?? 0),
+                    },
+                  ]
+            }
+            value={String(isEditing ? editPosition : (collection.position ?? 0))}
+            onChange={(v) => isEditing && setEditPosition(Number(v))}
+            disabled={!isEditing}
+          />
 
           <Toggle
             label="Visível"

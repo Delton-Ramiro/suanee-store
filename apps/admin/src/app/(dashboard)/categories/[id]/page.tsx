@@ -10,6 +10,7 @@ import {
   useCategory,
   useCategoryProducts,
   useUpdateCategory,
+  useCategoryNextPosition,
   type Category,
   type AdminProductListItem,
 } from "@/lib/hooks/useCategories";
@@ -20,6 +21,8 @@ import Pagination from "@/components/ui/Pagination";
 import ImageUpload from "@/components/ui/ImageUpload";
 import Toggle from "@/components/ui/Toggle";
 import CopyId from "@/components/ui/CopyId";
+import SingleSelectDropdown from "@/components/ui/SingleSelectDropdown";
+import { buildPositionOptions } from "@/lib/positions";
 import { formatDate, formatPrice, slugify } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { canManageCategories } from "@/lib/admin-access";
@@ -141,6 +144,14 @@ export default function CategoryDetailPage({
   const { data: category, isLoading: catLoading } = useCategory(id);
   const { data: allCats } = useCategories();
   const updateCategory = useUpdateCategory();
+
+  // When editing, derive next position for the currently selected scope
+  const editLevel = category?.level ?? null;
+  const editScopeParentId = isEditing ? editParentId : null;
+  const { data: nextPositionData } = useCategoryNextPosition(
+    isEditing ? editLevel : null,
+    editScopeParentId,
+  );
 
   if (!allowCategoryManagement) {
     return (
@@ -282,23 +293,36 @@ export default function CategoryDetailPage({
     scopedSiblings.filter((c) => c.id !== category?.id).map((c) => c.position),
   );
 
-  const availablePositionOptions = Array.from({ length: 21 }, (_, i) => i + 1)
-    .filter(
-      (i) =>
-        i === (category?.position ?? -1) || !occupiedScopedPositions.has(i),
-    )
-    .map((i) => ({ value: String(i), label: String(i) }));
+  const availablePositionOptions = nextPositionData
+    ? buildPositionOptions({
+        occupiedPositions: nextPositionData.occupiedPositions,
+        nextPosition: nextPositionData.nextPosition,
+        currentPosition: category?.position ?? undefined,
+        startFrom: 1,
+      })
+    : // Fallback while API loads: derive from tree
+      Array.from({ length: 21 }, (_, i) => i + 1)
+        .filter(
+          (i) =>
+            i === (category?.position ?? -1) ||
+            !occupiedScopedPositions.has(i),
+        )
+        .map((i) => ({ value: String(i), label: String(i) }));
 
   useEffect(() => {
-    if (!isEditing || !category || availablePositionOptions.length === 0)
-      return;
+    if (!isEditing || !category || availablePositionOptions.length === 0) return;
     const stillValid = availablePositionOptions.some(
       (opt) => opt.value === editPosition,
     );
     if (!stillValid) {
-      setEditPosition(availablePositionOptions[0].value);
+      // Prefer API-suggested next position if available, else fall back to first option
+      const apiNext = nextPositionData?.nextPosition;
+      const preferred = apiNext
+        ? availablePositionOptions.find((o) => o.value === String(apiNext))
+        : undefined;
+      setEditPosition((preferred ?? availablePositionOptions[0]).value);
     }
-  }, [isEditing, category, availablePositionOptions, editPosition]);
+  }, [isEditing, category, availablePositionOptions, editPosition, nextPositionData]);
 
   if (catLoading) {
     return (
@@ -641,15 +665,22 @@ export default function CategoryDetailPage({
             disabled={!isEditing}
           />
 
-          {/* Position — ordered dropdown */}
-          <SelectField
+          {/* Position — smart dropdown with gap filling */}
+          <SingleSelectDropdown
             label="Índice de exibição"
-            displayValue={String(category.position ?? 1)}
-            {...(isEditing && {
-              options: availablePositionOptions,
-              value: editPosition,
-              onChange: setEditPosition,
-            })}
+            options={
+              isEditing
+                ? availablePositionOptions
+                : [
+                    {
+                      value: String(category.position ?? 1),
+                      label: String(category.position ?? 1),
+                    },
+                  ]
+            }
+            value={isEditing ? editPosition : String(category.position ?? 1)}
+            onChange={isEditing ? setEditPosition : undefined}
+            disabled={!isEditing}
           />
 
           {/* Toggles */}

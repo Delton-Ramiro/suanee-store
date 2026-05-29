@@ -38,7 +38,7 @@ export default async function CategoriaPage({
     apiFetch<Brand[]>("/catalog/brands", {
       next: { revalidate: Revalidate.catalog },
     }).catch(() => []),
-    apiFetch<Collection[]>(`/catalog/collections?categorySlug=${slug}`, {
+    apiFetch<Collection[]>(`/catalog/collections?categorySlug=${slug}&orderBy=position`, {
       next: { revalidate: Revalidate.catalog },
     }).catch(() => []),
   ]);

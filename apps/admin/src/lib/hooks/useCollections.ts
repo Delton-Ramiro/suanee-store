@@ -223,10 +223,10 @@ export function useRemoveProductFromCollection() {
 
 export function useCollectionNextPosition(categoryId?: string | null) {
   const qs = categoryId ? `?categoryId=${categoryId}` : "";
-  return useQuery<{ nextPosition: number }>({
+  return useQuery<{ nextPosition: number; occupiedPositions: number[] }>({
     queryKey: ["collection-next-position", categoryId ?? null],
     queryFn: () =>
-      apiFetch<{ nextPosition: number }>(
+      apiFetch<{ nextPosition: number; occupiedPositions: number[] }>(
         `/admin/collections/next-position${qs}`,
       ),
   });

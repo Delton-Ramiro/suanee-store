@@ -11,9 +11,12 @@ import type { Collection } from "@/components/home/HomeTrend";
 
 async function getCategories(): Promise<Category[]> {
   try {
-    const data = await apiFetch<Category[]>("/catalog/categories", {
-      next: { revalidate: Revalidate.catalog },
-    });
+    const data = await apiFetch<Category[]>(
+      "/catalog/categories?orderBy=position",
+      {
+        next: { revalidate: Revalidate.catalog },
+      },
+    );
     return Array.isArray(data) ? data : [];
   } catch {
     return [];
@@ -44,9 +47,12 @@ async function getBrands(): Promise<Brand[]> {
 
 async function getCollections(): Promise<Collection[]> {
   try {
-    const data = await apiFetch<Collection[]>("/catalog/collections", {
-      next: { revalidate: Revalidate.catalog },
-    });
+    const data = await apiFetch<Collection[]>(
+      "/catalog/collections?orderBy=position",
+      {
+        next: { revalidate: Revalidate.catalog },
+      },
+    );
     return Array.isArray(data) ? data : [];
   } catch {
     return [];

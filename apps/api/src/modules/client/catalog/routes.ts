@@ -23,10 +23,20 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ["Catalog"],
       description:
-        "Returns the full active category tree (3 levels deep). Response is cached for 5 minutes.",
+        "Returns the full active category tree (3 levels deep), ordered by position. Response is cached for 5 minutes.",
+      querystring: {
+        type: "object",
+        properties: {
+          orderBy: {
+            type: "string",
+            enum: ["position"],
+            description: "Order root categories by this field (default: position)",
+          },
+        },
+      },
       response: {
         200: {
-          description: "Category tree",
+          description: "Category tree ordered by position",
           type: "array",
           items: { type: "object" },
         },
@@ -524,11 +534,16 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         type: "object",
         properties: {
           categorySlug: { type: "string" },
+          orderBy: {
+            type: "string",
+            enum: ["position"],
+            description: "Order collections by this field (default: position)",
+          },
         },
       },
       response: {
         200: {
-          description: "Collections list",
+          description: "Collections list ordered by position",
           type: "array",
           items: { type: "object" },
         },

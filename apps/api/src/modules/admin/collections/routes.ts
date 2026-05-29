@@ -105,7 +105,10 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
       response: {
         200: {
           type: "object",
-          properties: { nextPosition: { type: "integer" } },
+          properties: {
+            nextPosition: { type: "integer" },
+            occupiedPositions: { type: "array", items: { type: "integer" } },
+          },
         },
       },
     },
@@ -114,12 +117,15 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
         .object({ categoryId: z.string().uuid().optional() })
         .parse(req.query);
 
-      const last = await prisma.collection.findFirst({
+      const all = await prisma.collection.findMany({
         where: { categoryId: categoryId ?? null },
-        orderBy: { position: "desc" },
+        orderBy: { position: "asc" },
         select: { position: true },
       });
-      return reply.send({ nextPosition: (last?.position ?? -1) + 1 });
+      const occupiedPositions = all.map((c) => c.position);
+      const maxPos =
+        occupiedPositions.length > 0 ? Math.max(...occupiedPositions) : 0;
+      return reply.send({ nextPosition: maxPos + 1, occupiedPositions });
     },
   });
 
