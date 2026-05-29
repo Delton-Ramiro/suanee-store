@@ -5,11 +5,13 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Search, Heart, User, ShoppingBag, Menu, X } from "lucide-react";
 import { useCategoryTree } from "@/lib/hooks/useCategoryTree";
 import { MegaMenu } from "@/components/MegaMenu";
+import { useCart, cartStore } from "@/lib/stores/cartStore";
+import { useFavorites, favoritesStore } from "@/lib/stores/favoritesStore";
 
 /* ─── Icon sizes ──────────────────────────────────────────────── */
 const iconCls = "w-[22px] h-[22px] stroke-[1.5]";
 
-/* ─── Utility icon button ─────────────────────────────────────── */
+/* ─── Utility icon button (link) ─────────────────────────────── */
 function IconBtn({
   href,
   label,
@@ -37,6 +39,35 @@ function IconBtn({
   );
 }
 
+/* ─── Utility icon button (action) ───────────────────────────── */
+function IconBtnAction({
+  onClick,
+  label,
+  badge,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  badge?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="relative flex items-center justify-center text-brand hover:text-primary transition-colors duration-150"
+    >
+      {children}
+      {badge != null && badge > 0 && (
+        <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-[3px] rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center leading-none">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
 /* ─── Component ───────────────────────────────────────────────── */
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -44,6 +75,12 @@ export default function Header() {
   const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: tree } = useCategoryTree();
+  const { items: cartItems } = useCart();
+  const { items: favoriteItems } = useFavorites();
+
+  const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
+  const favoriteCount = favoriteItems.length;
+
   const categories = (tree ?? [])
     .filter((c) => !!c?.slug && !!c?.name)
     .sort((a, b) => a.position - b.position);
@@ -129,9 +166,13 @@ export default function Header() {
                 <Search className={iconCls} />
               </IconBtn>
 
-              <IconBtn href="/favoritos" label="Favoritos">
+              <IconBtnAction
+                onClick={favoritesStore.open}
+                label="Favoritos"
+                badge={favoriteCount}
+              >
                 <Heart className={iconCls} />
-              </IconBtn>
+              </IconBtnAction>
 
               <IconBtn href="/conta" label="A minha conta">
                 <User className={iconCls} />
@@ -140,9 +181,13 @@ export default function Header() {
               {/* Separator */}
               <span className="w-px h-5 bg-brand/20" aria-hidden="true" />
 
-              <IconBtn href="/carrinho" label="Carrinho de compras">
+              <IconBtnAction
+                onClick={cartStore.open}
+                label="Carrinho de compras"
+                badge={cartCount}
+              >
                 <ShoppingBag className={iconCls} />
-              </IconBtn>
+              </IconBtnAction>
             </div>
           </div>
 
@@ -151,9 +196,9 @@ export default function Header() {
             <IconBtn href="/pesquisa" label="Pesquisar">
               <Search className="w-[20px] h-[20px] stroke-[1.5]" />
             </IconBtn>
-            <IconBtn href="/carrinho" label="Carrinho">
+            <IconBtnAction onClick={cartStore.open} label="Carrinho" badge={cartCount}>
               <ShoppingBag className="w-[20px] h-[20px] stroke-[1.5]" />
-            </IconBtn>
+            </IconBtnAction>
             <button
               aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
               onClick={() => setMobileOpen((v) => !v)}
@@ -246,14 +291,14 @@ export default function Header() {
                 >
                   <User className="w-4 h-4" />A minha conta
                 </Link>
-                <Link
-                  href="/favoritos"
-                  onClick={() => setMobileOpen(false)}
+                <button
+                  type="button"
+                  onClick={() => { setMobileOpen(false); favoritesStore.open(); }}
                   className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
                 >
                   <Heart className="w-4 h-4" />
                   Favoritos
-                </Link>
+                </button>
               </div>
             </div>
           </div>

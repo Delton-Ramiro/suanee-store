@@ -77,6 +77,18 @@ export type ProductDetail = {
     description: string | null;
     images: string[];
   } | null;
+  relatedProducts: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    basePrice: number;
+    isIndicativePrice: boolean;
+    hasDiscount: boolean;
+    discountPrice: number | null;
+    brand: { id: string; name: string; slug: string };
+    media: Array<{ id: string; url: string; mediaType: string; isPrimary: boolean }>;
+    variants: Array<{ colorId: string | null; color: { id: string; name: string; hexCode: string } | null }>;
+  }>;
 };
 
 export async function generateMetadata({

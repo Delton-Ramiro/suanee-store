@@ -190,3 +190,37 @@ export function useDeleteProduct() {
     onError: (err: Error) => toastApiError(err),
   });
 }
+
+export type RelatedProductItem = {
+  id: string;
+  name: string;
+  slug: string;
+  basePrice: number;
+  brand: { id: string; name: string };
+  media: Array<{ url: string; mediaType: string }>;
+};
+
+export function useRelatedProducts(id: string | null) {
+  return useQuery<RelatedProductItem[]>({
+    queryKey: ["admin-product-related", id],
+    queryFn: () =>
+      apiFetch<RelatedProductItem[]>(`/admin/products/${id}/related`),
+    enabled: !!id,
+  });
+}
+
+export function useUpdateRelatedProducts(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (relatedProductIds: string[]) =>
+      apiFetch<{ count: number }>(`/admin/products/${id}/related`, {
+        method: "PUT",
+        body: JSON.stringify({ relatedProductIds }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-product-related", id] });
+      toast.success("Produtos relacionados guardados");
+    },
+    onError: (err: Error) => toastApiError(err),
+  });
+}

@@ -518,12 +518,58 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
               option: { select: { id: true, label: true, value: true } },
             },
           },
+          relatedProducts: {
+            select: {
+              target: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  basePrice: true,
+                  isIndicativePrice: true,
+                  hasDiscount: true,
+                  discountPrice: true,
+                  brand: { select: { id: true, name: true, slug: true } },
+                  media: {
+                    where: { colorId: null, isDeleted: false } as never,
+                    take: 3,
+                    orderBy: { position: "asc" },
+                    select: { id: true, url: true, mediaType: true, isPrimary: true },
+                  },
+                  variants: {
+                    select: {
+                      colorId: true,
+                      color: { select: { id: true, name: true, hexCode: true } },
+                    },
+                    orderBy: { position: "asc" },
+                  },
+                },
+              },
+            },
+          },
         },
       });
 
       if (!product)
         return reply.status(404).send({ error: "Product not found" });
-      return reply.send(product);
+
+      // Flatten relatedProducts join table rows, deduplicating variant colors
+      const { relatedProducts: relatedRows, ...productRest } = product as typeof product & {
+        relatedProducts: Array<{ target: { variants?: Array<{ colorId: string | null; color: unknown }> } & Record<string, unknown> }>;
+      };
+      return reply.send({
+        ...productRest,
+        relatedProducts: (relatedRows ?? []).map((r) => {
+          const target = r.target;
+          const seen = new Set<string>();
+          const variants = (target.variants ?? []).filter((v) => {
+            if (!v.colorId || seen.has(v.colorId)) return false;
+            seen.add(v.colorId);
+            return true;
+          });
+          return { ...target, variants };
+        }),
+      });
     },
   });
 

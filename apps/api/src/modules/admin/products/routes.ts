@@ -340,6 +340,90 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
     },
   });
 
+  // GET /admin/products/:id/related — list related products
+  fastify.get<{ Params: { id: string } }>("/:id/related", {
+    preHandler: [fastify.requirePermission(Permissions.PRODUCTS_VIEW)],
+    schema: {
+      tags: ["Admin Products"],
+      security: [{ bearerAuth: [] }],
+      description: "List the 'also like' related products for a product.",
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string", format: "uuid" } },
+      },
+      response: {
+        200: { description: "Related products", type: "array", items: { type: "object" } },
+      },
+    },
+    handler: async (req, reply) => {
+      const rows = await prisma.productRelated.findMany({
+        where: { sourceId: req.params.id },
+        select: {
+          target: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              basePrice: true,
+              brand: { select: { id: true, name: true } },
+              media: {
+                where: { isPrimary: true, isDeleted: false } as never,
+                take: 1,
+                select: { url: true, mediaType: true },
+              },
+            },
+          },
+        },
+      });
+      return reply.send(rows.map((r) => r.target));
+    },
+  });
+
+  // PUT /admin/products/:id/related — replace all related products
+  fastify.put<{
+    Params: { id: string };
+    Body: { relatedProductIds: string[] };
+  }>("/:id/related", {
+    preHandler: [fastify.requirePermission(Permissions.PRODUCTS_EDIT)],
+    schema: {
+      tags: ["Admin Products"],
+      security: [{ bearerAuth: [] }],
+      description: "Replace the full list of 'also like' related products.",
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string", format: "uuid" } },
+      },
+      body: {
+        type: "object",
+        required: ["relatedProductIds"],
+        properties: {
+          relatedProductIds: { type: "array", items: { type: "string", format: "uuid" } },
+        },
+      },
+      response: {
+        200: { description: "OK", type: "object", properties: { count: { type: "integer" } } },
+      },
+    },
+    handler: async (req, reply) => {
+      const { id } = req.params;
+      const ids = req.body.relatedProductIds.filter((rid) => rid !== id); // no self-reference
+      await prisma.$transaction([
+        prisma.productRelated.deleteMany({ where: { sourceId: id } }),
+        ...(ids.length > 0
+          ? [
+              prisma.productRelated.createMany({
+                data: ids.map((targetId) => ({ sourceId: id, targetId })),
+                skipDuplicates: true,
+              }),
+            ]
+          : []),
+      ]);
+      return reply.send({ count: ids.length });
+    },
+  });
+
   // GET /admin/products/:id/financial
   fastify.get<{ Params: { id: string } }>("/:id/financial", {
     preHandler: [fastify.requirePermission(Permissions.PRODUCTS_VIEW)],

@@ -7,6 +7,9 @@ import type {
   ProductDetail,
   ProductMedia,
 } from "@/app/(shop)/produtos/[slug]/page";
+import { ProductCard } from "@/components/products/ProductCard";
+import { cartStore, cartItemKey, useCart } from "@/lib/stores/cartStore";
+import { favoritesStore, useFavorites } from "@/lib/stores/favoritesStore";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* Helpers                                                                      */
@@ -143,8 +146,14 @@ function SizeDropdown({
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between border border-brand rounded-xs px-4 py-3.5 text-sm bg-card focus:outline-none cursor-pointer"
       >
-        <span className={selectedSize ? "text-brand font-medium" : "text-text-muted"}>
-          {selectedSize ? (selectedSize.label ?? selectedSize.name) : "Seu tamanho"}
+        <span
+          className={
+            selectedSize ? "text-brand font-medium" : "text-text-muted"
+          }
+        >
+          {selectedSize
+            ? (selectedSize.label ?? selectedSize.name)
+            : "Seu tamanho"}
         </span>
         <ChevronDown
           size={16}
@@ -192,6 +201,10 @@ function SizeDropdown({
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 export function ProductDetailClient({ product }: { product: ProductDetail }) {
+  /* ── Stores ──────────────────────────────────────────────────────────── */
+  const { items: cartItems } = useCart();
+  const { items: favoriteItems } = useFavorites();
+
   /* ── Unique colors from variants ─────────────────────────────────────── */
   const colors = useMemo(() => {
     const seen = new Set<string>();
@@ -270,6 +283,65 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
       ? Math.round((1 - discountPrice / basePrice) * 100)
       : null;
 
+  /* ── Cart / favorites helpers ────────────────────────────────────────── */
+  const isFavorited = favoriteItems.some((i) => i.productId === product.id);
+
+  const cartKey = cartItemKey(
+    product.id,
+    selectedColorId,
+    selectedSizeId,
+  );
+  const isInCart = cartItems.some((i) => i.key === cartKey);
+
+  const selectedColor = colors.find((c) => c.id === selectedColorId) ?? null;
+  const selectedSize = availableSizes.find((s) => s.id === selectedSizeId) ?? null;
+
+  function handleAddToCart() {
+    if (!selectedSizeId) return;
+    const displayPrice =
+      hasDiscount && discountPrice ? Number(discountPrice) : Number(basePrice);
+    const thumb = displayMedia.find((m) => m.mediaType === "image")?.url ?? null;
+    const categoryName =
+      product.categories[0]?.category?.name ?? null;
+
+    cartStore.add({
+      key: cartKey,
+      productId: product.id,
+      slug: product.slug,
+      name: product.name,
+      brandName: product.brand.name,
+      imageUrl: thumb,
+      colorId: selectedColorId,
+      colorName: selectedColor?.name ?? null,
+      sizeId: selectedSizeId,
+      sizeName: selectedSize?.label ?? selectedSize?.name ?? null,
+      categoryName,
+      price: displayPrice,
+      isIndicativePrice,
+      stockQuantity: selectedVariant?.stockQuantity ?? 999,
+    });
+  }
+
+  function handleToggleFavorite() {
+    const thumb = displayMedia.find((m) => m.mediaType === "image")?.url ?? null;
+    const categoryName = product.categories[0]?.category?.name ?? null;
+
+    favoritesStore.toggle({
+      productId: product.id,
+      slug: product.slug,
+      name: product.name,
+      brandName: product.brand.name,
+      imageUrl: thumb,
+      price: Number(basePrice),
+      isIndicativePrice,
+      hasDiscount,
+      discountPrice: discountPrice ? Number(discountPrice) : null,
+      categoryName,
+      colorName: selectedColor?.name ?? null,
+      sizeName: selectedSize?.label ?? selectedSize?.name ?? null,
+    });
+  }
+
   /* ── Breadcrumb ──────────────────────────────────────────────────────── */
   const breadcrumb = buildBreadcrumb(product.categories);
 
@@ -315,7 +387,10 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
 
           {/* 2-column masonry grid */}
           {displayMedia.length > 0 ? (
-            <div key={selectedColorId ?? "base"} className="columns-2 gap-[5px] animate-product-media">
+            <div
+              key={selectedColorId ?? "base"}
+              className="columns-2 gap-[5px] animate-product-media"
+            >
               {displayMedia.map((item) => (
                 <div
                   key={item.id}
@@ -331,16 +406,20 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
         </div>
 
         {/* ── Right: Product info panel ───────────────────────────────── */}
-        <div className="w-full md:w-87.5 lg:w-100 shrink-0 md:sticky md:top-[calc(var(--spacing-nav)+24px)] md:max-h-[calc(100vh-var(--spacing-nav)-32px)] md:overflow-y-auto md:no-scrollbar">
+        <div className="w-full md:w-87.5 lg:w-100 shrink-0 md:sticky md:top-[calc(var(--spacing-nav)+24px)]">
           {/* Brand + Heart row */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <p className="text-md font-bold text-brand">{product.brand.name}</p>
             <button
               type="button"
-              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-danger transition-colors"
-              aria-label="Adicionar aos favoritos"
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-colors"
+              aria-label={isFavorited ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+              onClick={handleToggleFavorite}
             >
-              <Heart size={17} />
+              <Heart
+                size={17}
+                className={isFavorited ? "fill-danger text-danger" : "text-text-muted hover:text-danger"}
+              />
             </button>
           </div>
 
@@ -445,13 +524,16 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
           <button
             type="button"
             disabled={!selectedSizeId}
+            onClick={handleAddToCart}
             className={`w-full py-4 rounded-xs font-bold text-sm tracking-[0.12em] uppercase mb-8 transition-colors ${
               selectedSizeId
-                ? "bg-brand text-white hover:bg-primary cursor-pointer"
+                ? isInCart
+                  ? "bg-success text-white cursor-pointer hover:bg-success/90"
+                  : "bg-brand text-white hover:bg-primary cursor-pointer"
                 : "bg-border text-text-muted cursor-not-allowed"
             }`}
           >
-            Adicionar
+            {isInCart ? "No carrinho" : "Adicionar"}
           </button>
 
           {/* Info accordions */}
@@ -488,6 +570,26 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
           </div>
         </div>
       </div>
+
+      {/* ── Também pode gostar ──────────────────────────────────────────── */}
+      {product.relatedProducts && product.relatedProducts.length > 0 && (
+        <section className="mt-20">
+          <h2 className="text-h4 font-bold text-brand mb-6">
+            Também pode gostar
+          </h2>
+          <div className="border-[0.5px] border-accent mb-5" />
+          <div className="flex gap-[5px] overflow-x-auto pb-3 no-scrollbar">
+            {product.relatedProducts.map((rp) => (
+              <div
+                key={rp.id}
+                className="shrink-0 w-[220px] sm:w-[260px] md:w-[300px]"
+              >
+                <ProductCard product={rp} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
