@@ -27,12 +27,14 @@ import {
   useUpdateCollection,
   useAddProductsToCollection,
   useRemoveProductFromCollection,
+  useCollectionNextPosition,
   type CollectionProduct,
 } from "@/lib/hooks/useCollections";
 import {
   useAdminProducts,
   type AdminProduct,
 } from "@/lib/hooks/useAdminProducts";
+import { useCategories } from "@/lib/hooks/useCategories";
 import DataTable, { type TableColumn } from "@/components/ui/DataTable";
 import SearchBar from "@/components/ui/SearchBar";
 import TabPill from "@/components/ui/TabPill";
@@ -301,6 +303,8 @@ export default function CollectionDetailPage({
   );
   const [editIsActive, setEditIsActive] = useState(true);
   const [editPosition, setEditPosition] = useState<number>(0);
+  const [editIsCategorized, setEditIsCategorized] = useState(false);
+  const [editCategoryId, setEditCategoryId] = useState<string>("");
 
   /* Remove confirmation */
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
@@ -316,6 +320,10 @@ export default function CollectionDetailPage({
   });
   const updateCollection = useUpdateCollection();
   const removeProduct = useRemoveProductFromCollection();
+  const { data: categories = [] } = useCategories({ level: 0 });
+  const { data: nextPositionData } = useCollectionNextPosition(
+    editIsCategorized ? (editCategoryId || null) : null,
+  );
 
   if (!allowCollectionManagement) {
     return <AccessDeniedState message="A sua role não pode gerir coleções." />;
@@ -345,7 +353,9 @@ export default function CollectionDetailPage({
       setEditName(collection.name);
       setEditCoverImageUrl(collection.coverImageUrl);
       setEditIsActive(collection.isActive);
-      setEditPosition((collection as any).position ?? 0);
+      setEditPosition(collection.position ?? 0);
+      setEditIsCategorized(!!collection.categoryId);
+      setEditCategoryId(collection.categoryId ?? "");
     }
   }, [collection]);
 
@@ -367,6 +377,7 @@ export default function CollectionDetailPage({
           coverImageUrl: editCoverImageUrl || null,
           isActive: editIsActive,
           position: editPosition,
+          categoryId: editIsCategorized && editCategoryId ? editCategoryId : null,
         },
       });
       setIsEditing(false);
@@ -380,7 +391,9 @@ export default function CollectionDetailPage({
       setEditName(collection.name);
       setEditCoverImageUrl(collection.coverImageUrl);
       setEditIsActive(collection.isActive);
-      setEditPosition((collection as any).position ?? 0);
+      setEditPosition(collection.position ?? 0);
+      setEditIsCategorized(!!collection.categoryId);
+      setEditCategoryId(collection.categoryId ?? "");
     }
     setIsEditing(false);
   }
@@ -606,6 +619,39 @@ export default function CollectionDetailPage({
             disabled={!isEditing}
           />
 
+          {/* Category association */}
+          <div className="flex flex-col gap-2">
+            <Toggle
+              label="Associar a categoria"
+              value={isEditing ? editIsCategorized : !!collection.categoryId}
+              onChange={isEditing ? (v) => {
+                setEditIsCategorized(v);
+                if (!v) setEditCategoryId("");
+              } : undefined}
+              disabled={!isEditing}
+            />
+            {(isEditing ? editIsCategorized : !!collection.categoryId) && (
+              <div className="relative">
+                <select
+                  value={isEditing ? editCategoryId : (collection.categoryId ?? "")}
+                  onChange={(e) => isEditing && setEditCategoryId(e.target.value)}
+                  disabled={!isEditing}
+                  className="w-full appearance-none px-3 py-2.5 pr-10 rounded-lg border border-border bg-card text-text-dark text-sm font-figtree focus:outline-none focus:border-accent transition-colors disabled:bg-surface-hover disabled:cursor-default"
+                >
+                  <option value="">Selecionar categoria…</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
+                  <ChevronDown size={16} />
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <label className="text-s font-medium text-text-body font-figtree">
               Índice de exibição
@@ -615,7 +661,7 @@ export default function CollectionDetailPage({
                 value={String(
                   isEditing
                     ? editPosition
-                    : ((collection as any).position ?? 0),
+                    : (collection.position ?? 0),
                 )}
                 onChange={(e) =>
                   isEditing && setEditPosition(Number(e.target.value))
@@ -626,6 +672,7 @@ export default function CollectionDetailPage({
                 {Array.from({ length: 21 }, (_, i) => (
                   <option key={i} value={String(i)}>
                     {i}
+                    {isEditing && nextPositionData?.nextPosition === i && i !== collection.position ? " (próximo disponível)" : ""}
                   </option>
                 ))}
               </select>

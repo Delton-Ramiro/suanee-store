@@ -7,8 +7,7 @@ import {
   Permissions,
 } from "@ecommerce/types";
 import { audit } from "../../../lib/audit.js";
-import { cacheDel } from "../../../lib/redis.js";
-import { CacheKeys } from "../../../lib/redis.js";
+
 import { offsetPaginate } from "../../../lib/utils.js";
 import { deleteR2Objects } from "../../../lib/r2.js";
 
@@ -231,7 +230,6 @@ export default async function adminBrandsRoutes(fastify: FastifyInstance) {
         },
         include: { brandCategories: true },
       });
-      await cacheDel(CacheKeys.brandList());
       await audit({
         adminId: req.user.sub,
         action: "brand.created",
@@ -329,7 +327,6 @@ export default async function adminBrandsRoutes(fastify: FastifyInstance) {
         where: { id: req.params.id },
         include: { brandCategories: true },
       });
-      await cacheDel(CacheKeys.brandList());
       await audit({
         adminId: req.user.sub,
         action: "brand.updated",
@@ -378,7 +375,6 @@ export default async function adminBrandsRoutes(fastify: FastifyInstance) {
           .status(409)
           .send({ error: `Cannot delete: ${count} products use this brand` });
       await prisma.brand.delete({ where: { id: req.params.id } });
-      await cacheDel(CacheKeys.brandList());
       await audit({
         adminId: req.user.sub,
         action: "brand.deleted",

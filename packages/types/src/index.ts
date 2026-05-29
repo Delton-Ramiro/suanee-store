@@ -95,6 +95,7 @@ export const CreateCollectionSchema = z.object({
   coverImageUrl: z.string().url().optional(),
   position: z.number().int().default(0),
   isActive: z.boolean().default(true),
+  categoryId: z.string().uuid().nullable().optional(),
 });
 
 export const UpdateCollectionSchema = CreateCollectionSchema.partial();

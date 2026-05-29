@@ -60,9 +60,7 @@ export async function cacheDelPattern(pattern: string): Promise<void> {
 export const CacheKeys = {
   categoryTree: () => "categories:tree",
   categoryBySlug: (slug: string) => `categories:slug:${slug}`,
-  brandList: () => "brands:list",
   storyList: () => "stories:list",
-  collectionList: () => "collections:list",
   mostSearched: () => "most-searched:list",
   product: (slug: string) => `products:${slug}`,
   searchResults: (query: string) => `search:${query}`,

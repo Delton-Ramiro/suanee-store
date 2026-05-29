@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../../lib/prisma.js";
 import { getCategoryDescendantIds } from "../../../lib/category-tree.js";
-import { redis, CacheKeys, cacheGet, cacheSet } from "../../../lib/redis.js";
+import { CacheKeys, cacheGet, cacheSet } from "../../../lib/redis.js";
 import { decodeCursor, paginate } from "../../../lib/utils.js";
 
 const ProductListQuery = z.object({
@@ -311,10 +311,6 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       },
     },
     handler: async (_req, reply) => {
-      const cacheKey = CacheKeys.brandList();
-      const cached = await cacheGet<unknown>(cacheKey);
-      if (cached) return reply.send(cached);
-
       const brands = await prisma.brand.findMany({
         orderBy: { name: "asc" },
         include: {
@@ -325,7 +321,6 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           },
         },
       });
-      await cacheSet(cacheKey, brands, 300);
       return reply.send(brands);
     },
   });
@@ -524,7 +519,13 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ["Catalog"],
       description:
-        "Returns all active collections ordered by position. Cached for 5 minutes.",
+        "Returns active collections ordered by position. Without ?categorySlug returns uncategorised (home page) collections. With ?categorySlug=homem returns that category's collections.",
+      querystring: {
+        type: "object",
+        properties: {
+          categorySlug: { type: "string" },
+        },
+      },
       response: {
         200: {
           description: "Collections list",
@@ -533,15 +534,29 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    handler: async (_req, reply) => {
-      const cacheKey = CacheKeys.collectionList();
-      const cached = await cacheGet<unknown>(cacheKey);
-      if (cached) return reply.send(cached);
+    handler: async (req, reply) => {
+      const { categorySlug } = z
+        .object({ categorySlug: z.string().optional() })
+        .parse(req.query);
+
+      let categoryId: string | null | undefined;
+      if (categorySlug) {
+        const cat = await prisma.category.findUnique({
+          where: { slug: categorySlug },
+          select: { id: true },
+        });
+        categoryId = cat?.id ?? "not-found";
+      }
+
+      const where =
+        categorySlug !== undefined
+          ? { categoryId: categoryId ?? null, isActive: true }
+          : { categoryId: null as null, isActive: true };
 
       const collections = await prisma.collection.findMany({
+        where,
         orderBy: { position: "asc" },
       });
-      await cacheSet(cacheKey, collections, 300);
       return reply.send(collections);
     },
   });

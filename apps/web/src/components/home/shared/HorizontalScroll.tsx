@@ -62,7 +62,7 @@ export function HorizontalScroll({
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="flex gap-[5px] overflow-x-auto no-scrollbar overscroll-x-contain"
+          className="flex gap-1.25 overflow-x-auto no-scrollbar overscroll-x-contain"
           style={{
             paddingLeft: LEFT_EDGE,
             paddingRight: 5,

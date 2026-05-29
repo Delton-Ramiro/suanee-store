@@ -95,7 +95,7 @@ export default function Header() {
             {categories.map((cat) => (
               <Link
                 key={cat.id}
-                href={`/produtos?categoria=${encodeURIComponent(cat.slug)}`}
+                href={`/categorias/${cat.slug}`}
                 onMouseEnter={() => openMenu(cat.id)}
                 onMouseLeave={scheduleClose}
               className="text-sm font-medium whitespace-nowrap transition-colors duration-150 px-3 py-1.5 rounded-md text-brand hover:text-primary"
@@ -174,7 +174,7 @@ export default function Header() {
         <div className="hidden md:block">
           {/* Dark backdrop — covers page below the menu */}
           <div
-            className="fixed top-[98px] inset-x-0 bottom-0 z-30 bg-black/30"
+            className="fixed top-[98px] inset-x-0 bottom-0 z-30 bg-black/30 animate-[fade-in_0.2s_ease_both]"
             onClick={() => setOpenCategoryId(null)}
           />
           {/* Panel */}
@@ -209,7 +209,7 @@ export default function Header() {
                   {categories.map((cat) => (
                     <Link
                       key={cat.id}
-                      href={`/produtos?categoria=${encodeURIComponent(cat.slug)}`}
+                      href={`/categorias/${cat.slug}`}
                       onClick={() => setMobileOpen(false)}
                       className="text-base font-medium text-brand hover:text-primary transition-colors duration-150"
                     >

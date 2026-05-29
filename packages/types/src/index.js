@@ -65,6 +65,7 @@ export const CreateBrandSchema = z.object({
     logoUrl: z.string().url().optional(),
     landingImage1Url: z.string().url().optional(),
     landingImage2Url: z.string().url().optional(),
+    status: z.enum(["draft", "published"]).default("published"),
     categoryIds: z.array(z.string().uuid()).optional(),
 });
 export const UpdateBrandSchema = CreateBrandSchema.partial();
@@ -79,6 +80,7 @@ export const CreateCollectionSchema = z.object({
     coverImageUrl: z.string().url().optional(),
     position: z.number().int().default(0),
     isActive: z.boolean().default(true),
+    categoryId: z.string().uuid().nullable().optional(),
 });
 export const UpdateCollectionSchema = CreateCollectionSchema.partial();
 // ─── Color ────────────────────────────────────────────────────────────────────
@@ -117,7 +119,8 @@ export const CreateAttributeDefinitionSchema = z.object({
         .string()
         .min(1)
         .max(100)
-        .regex(/^[a-z0-9-]+$/),
+        .regex(/^[a-z0-9-]+$/)
+        .optional(),
     inputType: InputType.default("multi_select"),
     position: z.number().int().default(0),
     isActive: z.boolean().default(true),
@@ -181,25 +184,26 @@ export const CreateProductBaseSchema = z.object({
         .max(200)
         .regex(/^[a-z0-9-]+$/),
     description: z.string().max(5000).optional(),
-    basePrice: z.number().positive(),
+    basePrice: z.number().nonnegative(),
     isIndicativePrice: z.boolean().default(false),
     hasDiscount: z.boolean().default(false),
     discountPrice: z.number().positive().optional(),
     stockStatus: StockStatus.default("in_stock"),
     status: ProductStatus.default("draft"),
     isVisible: z.boolean().default(true),
-    keyCharacteristics: z.array(PolicyItemSchema).optional(),
-    productInfo: z.array(PolicyItemSchema).optional(),
-    sendPolicy: z.array(PolicyItemSchema).optional(),
-    returnPolicy: z.array(PolicyItemSchema).optional(),
+    keyCharacteristics: z.string().optional(),
+    productInfo: z.string().optional(),
+    sendPolicy: z.string().optional(),
+    returnPolicy: z.string().optional(),
+    deliveryEstimate: z.string().optional(),
     supplierLink: z.string().url().optional(),
     mainColorId: z.string().uuid().optional(),
     metaTitle: z.string().max(60).optional(),
     metaDescription: z.string().max(160).optional(),
-    categoryIds: z.array(z.string().uuid()).min(1),
-    sizeIds: z.array(z.string().uuid()).min(1),
-    variants: z.array(ProductVariantInputSchema).min(1),
-    media: z.array(ProductMediaInputSchema).min(1),
+    categoryIds: z.array(z.string().uuid()).optional(),
+    sizeIds: z.array(z.string().uuid()).optional(),
+    variants: z.array(ProductVariantInputSchema).optional(),
+    media: z.array(ProductMediaInputSchema).optional(),
     attributes: z.array(ProductAttributeInputSchema).optional(),
 });
 export const CreateProductSchema = CreateProductBaseSchema.refine((d) => !d.hasDiscount ||
@@ -211,15 +215,15 @@ export const UpdateProductSchema = CreateProductBaseSchema.partial();
 // ─── Product Supplier (Financial Analysis) ────────────────────────────────────
 export const CreateProductSupplierSchema = z.object({
     supplierName: z.string().min(1).max(200),
-  supplierLink: z.string().max(500).optional(),
-  address: z.string().max(500).optional(),
-  contact: z.string().max(200).optional(),
-  currencyRateId: z.string().uuid().optional(),
-  supplierPrice: z.number().nonnegative(),
-  priceWithDelivery: z.number().nonnegative(),
-  deliveryTax: z.number().nonnegative(),
-  otherCosts: z.number().nonnegative(),
-  proposedPrice: z.number().nonnegative().optional(),
+    supplierLink: z.string().max(500).optional(),
+    address: z.string().max(500).optional(),
+    contact: z.string().max(200).optional(),
+    currencyRateId: z.string().uuid().optional(),
+    supplierPrice: z.number().nonnegative(),
+    priceWithDelivery: z.number().nonnegative(),
+    deliveryTax: z.number().nonnegative(),
+    otherCosts: z.number().nonnegative(),
+    proposedPrice: z.number().nonnegative().optional(),
     notes: z.string().max(1000).optional(),
 });
 export const CreateProductCompetitorSchema = z.object({
@@ -316,11 +320,35 @@ export const CreateAdminUserSchema = z.object({
         .min(8)
         .regex(/[A-Z]/, "Must contain uppercase")
         .regex(/[0-9]/, "Must contain number"),
-    permissions: z.number().int().nonnegative(),
+    roleKey: z
+        .enum([
+        "super_admin",
+        "admin_no_role_manager",
+        "customer_care",
+        "finance",
+        "product_analyst",
+        "content_manager",
+    ])
+        .optional()
+        .nullable(),
+    permissions: z.number().int().nonnegative().optional(),
+    avatarUrl: z.string().url().optional().nullable(),
 });
 export const UpdateAdminUserSchema = z.object({
     name: z.string().min(2).max(100).optional(),
+    roleKey: z
+        .enum([
+        "super_admin",
+        "admin_no_role_manager",
+        "customer_care",
+        "finance",
+        "product_analyst",
+        "content_manager",
+    ])
+        .optional()
+        .nullable(),
     permissions: z.number().int().nonnegative().optional(),
+    avatarUrl: z.string().url().optional().nullable(),
 });
 export const AdminLoginSchema = z.object({
     email: z.string().email(),
@@ -370,6 +398,7 @@ export const PresignRequestSchema = z.object({
         "category",
         "size_guide",
         "avatar",
+        "collection",
     ]),
 });
 // ─── Analytics ────────────────────────────────────────────────────────────────
@@ -413,4 +442,150 @@ export const MANAGE_PRODUCTS = Permissions.PRODUCTS_VIEW |
 export const hasPermission = (userPermissions, permission) => {
     return (Number(userPermissions) & permission) === permission;
 };
+// ─── Role System ─────────────────────────────────────────────────────────────
+export const RoleKeySchema = z.enum([
+    "super_admin",
+    "admin_no_role_manager",
+    "customer_care",
+    "finance",
+    "product_analyst",
+    "content_manager",
+]);
+const ROLE_DEFINITIONS = {
+    super_admin: {
+        label: "Super Admin",
+        permissions: ALL_PERMISSIONS,
+        rules: {
+            canManageAuthority: true,
+            canCreateOrder: true,
+            canEditOrderItems: true,
+            canMarkOrderPaid: true,
+            canUpdateOrderStatusesExceptPaid: true,
+            canSetAnyOrderStatusExceptPaid: true,
+            canOnlyCancelOrders: false,
+            canEditVisibleProducts: true,
+            canDeleteProduct: true,
+            canChangeProductVisibility: true,
+            canPublishProductStatus: true,
+            forceProductVisibilityFalseOnSave: false,
+        },
+    },
+    admin_no_role_manager: {
+        label: "Admin Sem Gestao de Roles",
+        permissions: ALL_PERMISSIONS & ~Permissions.AUTHORITY_MANAGE,
+        rules: {
+            canManageAuthority: false,
+            canCreateOrder: true,
+            canEditOrderItems: true,
+            canMarkOrderPaid: true,
+            canUpdateOrderStatusesExceptPaid: true,
+            canSetAnyOrderStatusExceptPaid: true,
+            canOnlyCancelOrders: false,
+            canEditVisibleProducts: true,
+            canDeleteProduct: true,
+            canChangeProductVisibility: true,
+            canPublishProductStatus: true,
+            forceProductVisibilityFalseOnSave: false,
+        },
+    },
+    customer_care: {
+        label: "Customer Care",
+        permissions: Permissions.ORDERS_VIEW |
+            Permissions.ORDERS_EDIT |
+            Permissions.CHATS_VIEW,
+        rules: {
+            canManageAuthority: false,
+            canCreateOrder: true,
+            canEditOrderItems: true,
+            canMarkOrderPaid: false,
+            canUpdateOrderStatusesExceptPaid: true,
+            canSetAnyOrderStatusExceptPaid: false,
+            canOnlyCancelOrders: true,
+            canEditVisibleProducts: false,
+            canDeleteProduct: false,
+            canChangeProductVisibility: false,
+            canPublishProductStatus: false,
+            forceProductVisibilityFalseOnSave: false,
+        },
+    },
+    finance: {
+        label: "Finance",
+        permissions: Permissions.DASHBOARD_VIEW |
+            Permissions.ORDERS_VIEW |
+            Permissions.ORDERS_EDIT |
+            Permissions.CLIENTS_VIEW |
+            Permissions.CURRENCY_EDIT,
+        rules: {
+            canManageAuthority: false,
+            canCreateOrder: false,
+            canEditOrderItems: false,
+            canMarkOrderPaid: true,
+            canUpdateOrderStatusesExceptPaid: false,
+            canSetAnyOrderStatusExceptPaid: false,
+            canOnlyCancelOrders: false,
+            canEditVisibleProducts: false,
+            canDeleteProduct: false,
+            canChangeProductVisibility: false,
+            canPublishProductStatus: false,
+            forceProductVisibilityFalseOnSave: false,
+        },
+    },
+    product_analyst: {
+        label: "Product Analyst",
+        permissions: Permissions.PRODUCTS_VIEW |
+            Permissions.PRODUCTS_CREATE |
+            Permissions.PRODUCTS_EDIT |
+            Permissions.CATEGORIES_EDIT |
+            Permissions.BRANDS_EDIT |
+            Permissions.FILTERS_EDIT |
+            Permissions.SIZES_EDIT |
+            Permissions.COLORS_EDIT |
+            Permissions.COLLECTIONS_EDIT |
+            Permissions.MOST_SEARCHED_EDIT,
+        rules: {
+            canManageAuthority: false,
+            canCreateOrder: false,
+            canEditOrderItems: false,
+            canMarkOrderPaid: false,
+            canUpdateOrderStatusesExceptPaid: false,
+            canSetAnyOrderStatusExceptPaid: false,
+            canOnlyCancelOrders: false,
+            canEditVisibleProducts: false,
+            canDeleteProduct: false,
+            canChangeProductVisibility: false,
+            canPublishProductStatus: false,
+            forceProductVisibilityFalseOnSave: true,
+        },
+    },
+    content_manager: {
+        label: "Content Manager",
+        permissions: Permissions.STORIES_EDIT | Permissions.PRODUCTS_VIEW,
+        rules: {
+            canManageAuthority: false,
+            canCreateOrder: false,
+            canEditOrderItems: false,
+            canMarkOrderPaid: false,
+            canUpdateOrderStatusesExceptPaid: false,
+            canSetAnyOrderStatusExceptPaid: false,
+            canOnlyCancelOrders: false,
+            canEditVisibleProducts: false,
+            canDeleteProduct: false,
+            canChangeProductVisibility: false,
+            canPublishProductStatus: false,
+            forceProductVisibilityFalseOnSave: false,
+        },
+    },
+};
+export const SYSTEM_ROLES = Object.entries(ROLE_DEFINITIONS).map(([key, definition]) => ({ key, permissions: definition.permissions }));
+export function getRoleRules(roleKey) {
+    return ROLE_DEFINITIONS[roleKey].rules;
+}
+export function getPermissionsForRole(roleKey) {
+    return ROLE_DEFINITIONS[roleKey].permissions;
+}
+export function getRoleKeyForPermissions(permissions) {
+    const p = Number(permissions);
+    const match = Object.entries(ROLE_DEFINITIONS).find(([, definition]) => definition.permissions === p);
+    return match ? match[0] : null;
+}
 //# sourceMappingURL=index.js.map

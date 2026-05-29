@@ -3,6 +3,7 @@ import { HomeStories } from "@/components/home/HomeStories";
 import { HomeBrands } from "@/components/home/HomeBrands";
 import { HomeTrend } from "@/components/home/HomeTrend";
 import { apiFetch } from "@/lib/api";
+import { Revalidate } from "@/lib/revalidate";
 import type { Category } from "@/lib/hooks/useCategories";
 import type { Story } from "@/lib/hooks/useStory";
 import type { Brand } from "@/components/home/HomeBrands";
@@ -11,7 +12,7 @@ import type { Collection } from "@/components/home/HomeTrend";
 async function getCategories(): Promise<Category[]> {
   try {
     const data = await apiFetch<Category[]>("/catalog/categories", {
-      next: { revalidate: 300 },
+      next: { revalidate: Revalidate.catalog },
     });
     return Array.isArray(data) ? data : [];
   } catch {
@@ -22,7 +23,7 @@ async function getCategories(): Promise<Category[]> {
 async function getStories(): Promise<Story[]> {
   try {
     const data = await apiFetch<Story[]>("/stories", {
-      next: { revalidate: 120 },
+      next: { revalidate: Revalidate.stories },
     });
     return Array.isArray(data) ? data : [];
   } catch {
@@ -33,7 +34,7 @@ async function getStories(): Promise<Story[]> {
 async function getBrands(): Promise<Brand[]> {
   try {
     const data = await apiFetch<Brand[]>("/catalog/brands", {
-      next: { revalidate: 300 },
+      next: { revalidate: Revalidate.catalog },
     });
     return Array.isArray(data) ? data : [];
   } catch {
@@ -44,7 +45,7 @@ async function getBrands(): Promise<Brand[]> {
 async function getCollections(): Promise<Collection[]> {
   try {
     const data = await apiFetch<Collection[]>("/catalog/collections", {
-      next: { revalidate: 300 },
+      next: { revalidate: Revalidate.catalog },
     });
     return Array.isArray(data) ? data : [];
   } catch {

@@ -1,4 +1,5 @@
 {
+  "/(shop)/categorias/[slug]/page": "app/(shop)/categorias/[slug]/page.js",
   "/(shop)/produtos/page": "app/(shop)/produtos/page.js",
   "/(shop)/page": "app/(shop)/page.js"
 }

@@ -16,7 +16,7 @@ export type Collection = {
 
 // ─── Single collection card ───────────────────────────────────────────────────
 
-function CollectionCard({ collection }: { collection: Collection }) {
+export function CollectionCard({ collection }: { collection: Collection }) {
   return (
     <Link
       href={`/colecoes/${collection.slug}`}
@@ -49,9 +49,9 @@ export function HomeTrend({ collections }: { collections: Collection[] }) {
       />
 
       {/* Mobile: 2-column grid */}
-      <div className="md:hidden grid grid-cols-2 gap-[5px]">
+      <div className="md:hidden grid grid-cols-2 gap-1.25">
         {collections.map((col) => (
-          <div key={col.id} className="relative h-[200px]">
+          <div key={col.id} className="relative h-50">
             <CollectionCard collection={col} />
           </div>
         ))}

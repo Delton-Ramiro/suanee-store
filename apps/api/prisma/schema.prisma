@@ -205,6 +205,7 @@ model Category {
   brandCategories      BrandCategory[]
   sizeCategories       SizeCategory[]
   mostSearched         MostSearched[]
+  collections          Collection[]
 
   @@index([parentId])
   @@index([level])
@@ -252,11 +253,14 @@ model Collection {
   coverImageUrl String?
   position      Int      @default(0)
   isActive      Boolean  @default(true)
+  categoryId    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  category Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   products ProductCollection[]
 
+  @@index([categoryId])
   @@map("collections")
 }
 
