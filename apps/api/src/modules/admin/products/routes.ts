@@ -110,7 +110,11 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
               OR: [
                 { name: { contains: q.search, mode: "insensitive" as const } },
                 { id: { contains: q.search } },
-                { brand: { name: { contains: q.search, mode: "insensitive" as const } } },
+                {
+                  brand: {
+                    name: { contains: q.search, mode: "insensitive" as const },
+                  },
+                },
               ],
             }
           : {}),
@@ -419,6 +423,7 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
           keyCharacteristics: { type: "string", nullable: true },
           productInfo: { type: "string", nullable: true },
           sendPolicy: { type: "string", nullable: true },
+          sizeAndFit: { type: "string", nullable: true },
           returnPolicy: { type: "string", nullable: true },
           deliveryEstimate: { type: "string", nullable: true },
           categoryIds: {
@@ -498,8 +503,8 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
         resolveAdminRoleKey(req.user),
         { status: body.status, isVisible: body.isVisible },
       );
-      const effectiveStatus =
-        (effectiveValues.status ?? body.status) as ProductStatus;
+      const effectiveStatus = (effectiveValues.status ??
+        body.status) as ProductStatus;
       const effectiveIsVisible = effectiveValues.isVisible ?? body.isVisible;
 
       // Validate filters belong to the selected category hierarchy
@@ -663,14 +668,8 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
           keyCharacteristics: { type: "string", nullable: true },
           productInfo: { type: "string", nullable: true },
           sendPolicy: { type: "string", nullable: true },
+          sizeAndFit: { type: "string", nullable: true },
           returnPolicy: { type: "string", nullable: true },
-          deliveryEstimate: { type: "string", nullable: true },
-          categoryIds: {
-            type: "array",
-            items: { type: "string", format: "uuid" },
-          },
-          sizeIds: { type: "array", items: { type: "string", format: "uuid" } },
-          variants: { type: "array", items: { type: "object" } },
           media: { type: "array", items: { type: "object" } },
           attributes: { type: "array", items: { type: "object" } },
         },
@@ -722,13 +721,13 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
         resolveAdminRoleKey(req.user),
         productData,
       );
-      const {
-        status: effectiveStatus,
-        ...effectiveProductDataRest
-      } = effectiveProductDataRaw;
+      const { status: effectiveStatus, ...effectiveProductDataRest } =
+        effectiveProductDataRaw;
       const effectiveProductData: Prisma.ProductUpdateInput = {
         ...effectiveProductDataRest,
-        ...(effectiveStatus ? { status: effectiveStatus as ProductStatus } : {}),
+        ...(effectiveStatus
+          ? { status: effectiveStatus as ProductStatus }
+          : {}),
       };
 
       // BUG-B: Validate attributes in PATCH as well, using effective categoryIds

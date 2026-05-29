@@ -234,6 +234,7 @@ export default function ProductEditPage({
   const [keyCharacteristics, setKeyCharacteristics] = useState("");
   const [productInfo, setProductInfo] = useState("");
   const [sendPolicy, setSendPolicy] = useState("");
+  const [sizeAndFit, setSizeAndFit] = useState("");
   const [returnPolicy, setReturnPolicy] = useState("");
   const [deliveryEstimate, setDeliveryEstimate] = useState("");
   const [supplierLink, setSupplierLink] = useState("");
@@ -325,6 +326,7 @@ export default function ProductEditPage({
     setKeyCharacteristics(product.keyCharacteristics ?? "");
     setProductInfo(product.productInfo ?? "");
     setSendPolicy(product.sendPolicy ?? "");
+    setSizeAndFit((product as unknown as { sizeAndFit?: string }).sizeAndFit ?? "");
     setReturnPolicy(product.returnPolicy ?? "");
     setDeliveryEstimate(product.deliveryEstimate ?? "");
     setSupplierLink(
@@ -862,64 +864,50 @@ export default function ProductEditPage({
   function addFilterAssignment() {
     if (!canEditProduct) return;
 
-    const newAssignments: FilterAssignment[] = [];
+    // filterIds the user interacted with this round (may be additions or removals)
+    const touched = [
+      {
+        filterId: l0FilterId,
+        valueIds: l0FilterValueIds,
+        level: "L0" as const,
+      },
+      {
+        filterId: l1FilterId,
+        valueIds: l1FilterValueIds,
+        level: "L1" as const,
+      },
+      {
+        filterId: l2FilterId,
+        valueIds: l2FilterValueIds,
+        level: "L2" as const,
+      },
+    ].filter((e) => e.filterId !== "");
 
-    if (l0FilterId && l0FilterValueIds.length > 0) {
-      const filter = allFilters.find((f) => f.id === l0FilterId);
-      if (filter) {
-        const values = filter.options
-          .filter((o) => l0FilterValueIds.includes(o.id))
-          .map((o) => ({ id: o.id, label: o.label, value: o.value }));
-        newAssignments.push({
-          filterId: l0FilterId,
-          filterName: filter.name,
-          categoryLevel: "L0",
-          values,
-        });
-      }
-    }
-
-    if (l1FilterId && l1FilterValueIds.length > 0) {
-      const filter = allFilters.find((f) => f.id === l1FilterId);
-      if (filter) {
-        const values = filter.options
-          .filter((o) => l1FilterValueIds.includes(o.id))
-          .map((o) => ({ id: o.id, label: o.label, value: o.value }));
-        newAssignments.push({
-          filterId: l1FilterId,
-          filterName: filter.name,
-          categoryLevel: "L1",
-          values,
-        });
-      }
-    }
-
-    if (l2FilterId && l2FilterValueIds.length > 0) {
-      const filter = allFilters.find((f) => f.id === l2FilterId);
-      if (filter) {
-        const values = filter.options
-          .filter((o) => l2FilterValueIds.includes(o.id))
-          .map((o) => ({ id: o.id, label: o.label, value: o.value }));
-        newAssignments.push({
-          filterId: l2FilterId,
-          filterName: filter.name,
-          categoryLevel: "L2",
-          values,
-        });
-      }
-    }
-
-    if (newAssignments.length === 0) return;
+    if (touched.length === 0) return;
 
     setFilterAssignments((prev) => {
       let next = [...prev];
-      for (const a of newAssignments) {
-        // Keyed by filterId only — a filter can only be in one column due to dedup
-        const idx = next.findIndex((x) => x.filterId === a.filterId);
-        if (idx >= 0) {
-          next[idx] = { ...next[idx]!, values: a.values };
+      for (const { filterId, valueIds, level } of touched) {
+        const idx = next.findIndex((x) => x.filterId === filterId);
+        if (valueIds.length === 0) {
+          // All values removed — drop the assignment entirely
+          if (idx >= 0) next.splice(idx, 1);
         } else {
-          next.push(a);
+          const filter = allFilters.find((f) => f.id === filterId);
+          if (!filter) continue;
+          const values = filter.options
+            .filter((o) => valueIds.includes(o.id))
+            .map((o) => ({ id: o.id, label: o.label, value: o.value }));
+          if (idx >= 0) {
+            next[idx] = { ...next[idx]!, values };
+          } else {
+            next.push({
+              filterId,
+              filterName: filter.name,
+              categoryLevel: level,
+              values,
+            });
+          }
         }
       }
       return next;
@@ -931,6 +919,20 @@ export default function ProductEditPage({
     setL1FilterValueIds([]);
     setL2FilterId("");
     setL2FilterValueIds([]);
+  }
+
+  /** Remove a single value from an existing assignment; drop assignment if empty. */
+  function removeFilterValue(filterId: string, valueId: string) {
+    if (!canEditProduct) return;
+    setFilterAssignments((prev) =>
+      prev
+        .map((a) =>
+          a.filterId === filterId
+            ? { ...a, values: a.values.filter((v) => v.id !== valueId) }
+            : a,
+        )
+        .filter((a) => a.values.length > 0),
+    );
   }
 
   /* ── Supplier helpers ──────────────────────────────────────────────────── */
@@ -1013,6 +1015,7 @@ export default function ProductEditPage({
       keyCharacteristics: keyCharacteristics || undefined,
       productInfo: productInfo || undefined,
       sendPolicy: sendPolicy || undefined,
+      sizeAndFit: sizeAndFit || undefined,
       returnPolicy: returnPolicy || undefined,
       deliveryEstimate: deliveryEstimate || undefined,
       sizeGuideId: sizeGuideId || undefined,
@@ -1408,6 +1411,15 @@ export default function ProductEditPage({
                   onChange={setSendPolicy}
                   placeholder="A sua política de envio ficará aqui…"
                   rows={2}
+                />
+              </div>
+              <div>
+                <FieldLabel>Tamanho e ajustes</FieldLabel>
+                <Textarea
+                  value={sizeAndFit}
+                  onChange={setSizeAndFit}
+                  placeholder="Informações sobre o tamanho e ajuste do produto…"
+                  rows={3}
                 />
               </div>
               <div>
@@ -2280,9 +2292,19 @@ export default function ProductEditPage({
                                   {a.values.map((v) => (
                                     <span
                                       key={v.id}
-                                      className="inline-flex px-3 py-1 rounded-full bg-navy text-white text-[12px] font-figtree"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-navy text-white text-[12px] font-figtree"
                                     >
                                       {v.label}
+                                      {canEditProduct && (
+                                        <button
+                                          type="button"
+                                          onClick={() => removeFilterValue(a.filterId, v.id)}
+                                          className="opacity-70 hover:opacity-100 transition-opacity"
+                                          aria-label={`Remover ${v.label}`}
+                                        >
+                                          <X size={11} />
+                                        </button>
+                                      )}
                                     </span>
                                   ))}
                                 </div>

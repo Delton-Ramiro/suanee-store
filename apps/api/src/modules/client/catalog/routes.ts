@@ -450,6 +450,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           keyCharacteristics: true,
           productInfo: true,
           sendPolicy: true,
+          sizeAndFit: true,
           returnPolicy: true,
           metaTitle: true,
           metaDescription: true,

@@ -91,12 +91,12 @@ export function ProductCard({ product }: { product: ProductListItem }) {
         {/* Tags — flush to top-left corner, stacked vertically */}
         <div className="absolute top-0 left-0 flex flex-col pointer-events-none">
           {product.isIndicativePrice && (
-            <span className="text-[11px] font-bold text-white bg-brand px-3 py-1 leading-tight">
+            <span className="text-xxs font-bold text-white bg-brand px-3 py-1 leading-tight">
               Preço indicativo
             </span>
           )}
           {product.hasDiscount && discountPrice !== null && (
-            <span className="text-[11px] font-bold text-white bg-brand px-3 py-1 leading-tight">
+            <span className="text-xxs font-bold text-white bg-brand px-3 py-1 leading-tight">
               {discountPercent(basePrice, discountPrice)}% Off
             </span>
           )}
@@ -129,7 +129,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
 
       {/* Info */}
       <div className="flex flex-col gap-[3px]">
-        <p className="text-[11px] font-bold text-brand uppercase tracking-[0.38px]">
+        <p className="text-xxs font-bold text-brand uppercase tracking-[0.38px]">
           {product.brand.name}
         </p>
         <p className="text-sm text-brand leading-snug line-clamp-2 tracking-[0.02em]">
@@ -145,7 +145,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
                 <span className="text-sm font-bold text-brand whitespace-nowrap">
                   {formatPrice(discountPrice)}
                 </span>
-                <span className="text-[11px] font-bold text-text-light line-through whitespace-nowrap">
+                <span className="text-xxs font-bold text-text-light line-through whitespace-nowrap">
                   {formatPrice(basePrice)}
                 </span>
               </>

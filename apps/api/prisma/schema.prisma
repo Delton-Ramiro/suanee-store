@@ -404,6 +404,7 @@ model Product {
   keyCharacteristics String?
   productInfo        String?
   sendPolicy         String?
+  sizeAndFit         String?
   returnPolicy       String?
   deliveryEstimate   String?
   supplierLink       String?
