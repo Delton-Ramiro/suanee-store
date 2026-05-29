@@ -37,7 +37,7 @@ function CategoryColumn({ l1 }: { l1: CategoryL1 }) {
               {(l2.children ?? []).map((l3) => (
                 <Link
                   key={l3.id}
-                  href={`/produtos?categoria=${l3.slug}`}
+                  href={`/categorias/${l3.slug}/produtos`}
                   className="block text-[13px] text-text-muted hover:text-primary py-[2px] leading-snug"
                 >
                   {l3.name}

@@ -3,18 +3,21 @@ import { z } from "zod";
 import { prisma } from "../../../lib/prisma.js";
 import { getCategoryDescendantIds } from "../../../lib/category-tree.js";
 import { CacheKeys, cacheGet, cacheSet } from "../../../lib/redis.js";
-import { decodeCursor, paginate } from "../../../lib/utils.js";
+import { offsetPaginate } from "../../../lib/utils.js";
 
 const ProductListQuery = z.object({
-  cursor: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(24),
   sort: z.enum(["newest", "price_asc", "price_desc"]).default("newest"),
+  /** Comma-separated brand IDs */
   brand: z.string().optional(),
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
-  colorIds: z.string().optional(),
-  sizeIds: z.string().optional(),
-  filters: z.string().optional(), // JSON string: {attrDefId: [optionId,...]}
+  /** Comma-separated color IDs */
+  color: z.string().optional(),
+  /** Comma-separated size IDs */
+  size: z.string().optional(),
+  // attr-{attrDefId}=optId1,optId2 params are parsed separately from raw query
 });
 
 export default async function clientCatalogRoutes(fastify: FastifyInstance) {
@@ -109,11 +112,20 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ["Catalog"],
       description:
-        "Returns the available attribute filters, colors, and sizes for a given category slug.",
+        "Returns the available attribute filters, colors, brands, and sizes for a given category slug.",
       params: {
         type: "object",
         required: ["slug"],
         properties: { slug: { type: "string", example: "sapatos" } },
+      },
+      querystring: {
+        type: "object",
+        properties: {
+          colorSearch: {
+            type: "string",
+            description: "Search term to filter colors by name (top 20 returned by default)",
+          },
+        },
       },
       response: {
         200: {
@@ -123,6 +135,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
             filters: { type: "array", items: { type: "object" } },
             colors: { type: "array", items: { type: "object" } },
             sizes: { type: "array", items: { type: "object" } },
+            brands: { type: "array", items: { type: "object" } },
           },
         },
         404: {
@@ -133,13 +146,17 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       },
     },
     handler: async (req, reply) => {
+      const { colorSearch } = z
+        .object({ colorSearch: z.string().optional() })
+        .parse(req.query);
+
       const category = await prisma.category.findFirst({
         where: { slug: req.params.slug },
       });
       if (!category)
         return reply.status(404).send({ error: "Category not found" });
 
-      // Collect all ancestor IDs including self
+      // Collect self + all ancestor IDs for attribute/size/brand scoping
       const categoryIds: string[] = [category.id];
       if (category.parentId) {
         categoryIds.push(category.parentId);
@@ -149,24 +166,41 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         if (grandparent?.parentId) categoryIds.push(grandparent.parentId);
       }
 
-      const filters = await prisma.attributeDefinition.findMany({
-        where: {
-          categories: { some: { categoryId: { in: categoryIds } } },
-          isActive: true,
-        },
-        include: { options: { orderBy: { label: "asc" } } },
-        orderBy: { name: "asc" },
-      });
+      const [filters, colors, sizes, brands] = await Promise.all([
+        prisma.attributeDefinition.findMany({
+          where: {
+            categories: { some: { categoryId: { in: categoryIds } } },
+            isActive: true,
+          },
+          include: { options: { orderBy: { position: "asc" } } },
+          orderBy: { position: "asc" },
+        }),
+        prisma.color.findMany({
+          where: colorSearch
+            ? { name: { contains: colorSearch, mode: "insensitive" } }
+            : undefined,
+          orderBy: { name: "asc" },
+          take: 20,
+          select: { id: true, name: true, hexCode: true, slug: true },
+        }),
+        prisma.size.findMany({
+          where: {
+            sizeCategories: { some: { categoryId: { in: categoryIds } } },
+          },
+          orderBy: { position: "asc" },
+          select: { id: true, name: true, label: true, sizeSystem: true },
+        }),
+        prisma.brand.findMany({
+          where: {
+            status: "published",
+            brandCategories: { some: { categoryId: { in: categoryIds } } },
+          },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        }),
+      ]);
 
-      const colors = await prisma.color.findMany({ orderBy: { name: "asc" } });
-      const sizes = await prisma.size.findMany({
-        where: {
-          sizeCategories: { some: { categoryId: { in: categoryIds } } },
-        },
-        orderBy: { position: "asc" },
-      });
-
-      return reply.send({ filters, colors, sizes });
+      return reply.send({ filters, colors, sizes, brands });
     },
   });
 
@@ -175,7 +209,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ["Catalog"],
       description:
-        "Paginated product listing for a category (includes all descendants). Supports cursor-based pagination and filtering by brand, price, color, and size.",
+        "Offset-paginated product listing for a category (includes all descendants). Supports filtering by brand, price, color, size, and custom attributes via attr-{attrDefId}=optId1,optId2 query params.",
       params: {
         type: "object",
         required: ["slug"],
@@ -184,23 +218,20 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       querystring: {
         type: "object",
         properties: {
-          cursor: { type: "string", description: "Opaque pagination cursor" },
+          page: { type: "integer", default: 1 },
           limit: { type: "integer", default: 24 },
           sort: {
             type: "string",
             enum: ["newest", "price_asc", "price_desc"],
             default: "newest",
           },
-          brand: { type: "string", description: "Brand ID" },
+          brand: { type: "string", description: "Comma-separated brand IDs" },
           minPrice: { type: "number" },
           maxPrice: { type: "number" },
-          colorIds: {
-            type: "string",
-            description: "Comma-separated color IDs",
-          },
-          sizeIds: { type: "string", description: "Comma-separated size IDs" },
-          filters: { type: "string", description: "JSON attribute filter map" },
+          color: { type: "string", description: "Comma-separated color IDs" },
+          size: { type: "string", description: "Comma-separated size IDs" },
         },
+        additionalProperties: true,
       },
       response: {
         200: {
@@ -208,8 +239,9 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           type: "object",
           properties: {
             items: { type: "array", items: { type: "object" } },
-            nextCursor: { type: "string", nullable: true },
             total: { type: "integer" },
+            page: { type: "integer" },
+            totalPages: { type: "integer" },
           },
         },
         404: {
@@ -226,6 +258,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           .status(400)
           .send({ error: parsed.error.errors[0]?.message ?? "Invalid query" });
       const q = parsed.data;
+
       const category = await prisma.category.findFirst({
         where: { slug: req.params.slug },
       });
@@ -236,8 +269,22 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       const descendantIds = await getCategoryDescendantIds(category.id);
       const categoryIds = [category.id, ...descendantIds];
 
-      const colorIds = q.colorIds?.split(",").filter(Boolean) ?? [];
-      const sizeIds = q.sizeIds?.split(",").filter(Boolean) ?? [];
+      // Parse attribute filters: any query param prefixed with "attr-"
+      // attr-{attrDefId}=optId1,optId2  →  [{attrDefId, optionIds[]}]
+      const attrFilters: { attrDefId: string; optionIds: string[] }[] = [];
+      for (const [key, value] of Object.entries(req.query as Record<string, unknown>)) {
+        if (key.startsWith("attr-") && typeof value === "string") {
+          const attrDefId = key.slice(5); // strip "attr-" prefix
+          const optionIds = value.split(",").filter(Boolean);
+          if (attrDefId && optionIds.length > 0) {
+            attrFilters.push({ attrDefId, optionIds });
+          }
+        }
+      }
+
+      const brandIds = q.brand?.split(",").filter(Boolean) ?? [];
+      const colorIds = q.color?.split(",").filter(Boolean) ?? [];
+      const sizeIds = q.size?.split(",").filter(Boolean) ?? [];
 
       const orderBy =
         q.sort === "price_asc"
@@ -250,12 +297,12 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         status: "published" as const,
         isVisible: true,
         categories: { some: { categoryId: { in: categoryIds } } },
-        ...(q.brand ? { brandId: q.brand } : {}),
-        ...(q.minPrice || q.maxPrice
+        ...(brandIds.length ? { brandId: { in: brandIds } } : {}),
+        ...(q.minPrice !== undefined || q.maxPrice !== undefined
           ? {
               basePrice: {
-                ...(q.minPrice ? { gte: q.minPrice } : {}),
-                ...(q.maxPrice ? { lte: q.maxPrice } : {}),
+                ...(q.minPrice !== undefined ? { gte: q.minPrice } : {}),
+                ...(q.maxPrice !== undefined ? { lte: q.maxPrice } : {}),
               },
             }
           : {}),
@@ -265,14 +312,28 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         ...(sizeIds.length
           ? { sizes: { some: { sizeId: { in: sizeIds } } } }
           : {}),
+        // Each attribute filter is an AND condition (product must satisfy all selected defs)
+        // Within each def, options are OR (any matching option satisfies that filter)
+        ...(attrFilters.length
+          ? {
+              AND: attrFilters.map(({ attrDefId, optionIds }) => ({
+                attributes: {
+                  some: {
+                    attributeDefinitionId: attrDefId,
+                    attributeOptionId: { in: optionIds },
+                  },
+                },
+              })),
+            }
+          : {}),
       };
+
+      const skip = (q.page - 1) * q.limit;
 
       const [products, total] = await Promise.all([
         prisma.product.findMany({
-          take: q.limit + 1,
-          ...(q.cursor
-            ? { cursor: { id: decodeCursor(q.cursor) }, skip: 1 }
-            : {}),
+          skip,
+          take: q.limit,
           where: productWhere,
           orderBy,
           select: {
@@ -280,19 +341,24 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
             name: true,
             slug: true,
             basePrice: true,
+            isIndicativePrice: true,
             hasDiscount: true,
             discountPrice: true,
             stockStatus: true,
             brand: { select: { id: true, name: true, slug: true } },
+            // Return up to 6 main media items (not color-specific) for card slideshow
             media: {
-              take: 1,
+              where: { colorId: null, isDeleted: false } as never,
+              take: 6,
               orderBy: { position: "asc" as const },
-              select: { id: true, url: true, mediaType: true },
+              select: { id: true, url: true, mediaType: true, isPrimary: true },
             },
+            // Fetch all color variants (deduplicated below)
             variants: {
-              take: 10,
+              take: 40,
+              orderBy: { position: "asc" as const },
               select: {
-                id: true,
+                colorId: true,
                 color: { select: { id: true, name: true, hexCode: true } },
               },
             },
@@ -301,8 +367,18 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         prisma.product.count({ where: productWhere }),
       ]);
 
-      const { items, nextCursor } = paginate(products, q.limit);
-      return reply.send({ items, nextCursor, total });
+      // Deduplicate variant colors per product
+      const mappedProducts = products.map((p) => {
+        const seen = new Set<string>();
+        const variants = p.variants.filter((v) => {
+          if (!v.colorId || seen.has(v.colorId)) return false;
+          seen.add(v.colorId);
+          return true;
+        });
+        return { ...p, variants };
+      });
+
+      return reply.send(offsetPaginate(mappedProducts, total, q.page, q.limit));
     },
   });
 
@@ -581,7 +657,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ["Catalog"],
       description:
-        "Paginated product listing for a collection. Supports the same filters as category product listing.",
+        "Offset-paginated product listing for a collection. Supports the same filters as category product listing.",
       params: {
         type: "object",
         required: ["slug"],
@@ -590,7 +666,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       querystring: {
         type: "object",
         properties: {
-          cursor: { type: "string" },
+          page: { type: "integer", default: 1 },
           limit: { type: "integer", default: 24 },
           sort: {
             type: "string",
@@ -600,8 +676,8 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           brand: { type: "string" },
           minPrice: { type: "number" },
           maxPrice: { type: "number" },
-          colorIds: { type: "string" },
-          sizeIds: { type: "string" },
+          color: { type: "string" },
+          size: { type: "string" },
         },
       },
       response: {
@@ -610,8 +686,9 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           type: "object",
           properties: {
             items: { type: "array", items: { type: "object" } },
-            nextCursor: { type: "string", nullable: true },
             total: { type: "integer" },
+            page: { type: "integer" },
+            totalPages: { type: "integer" },
           },
         },
         404: {
@@ -634,8 +711,9 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       if (!collection)
         return reply.status(404).send({ error: "Collection not found" });
 
-      const colorIds = q.colorIds?.split(",").filter(Boolean) ?? [];
-      const sizeIds = q.sizeIds?.split(",").filter(Boolean) ?? [];
+      const brandIds = q.brand?.split(",").filter(Boolean) ?? [];
+      const colorIds = q.color?.split(",").filter(Boolean) ?? [];
+      const sizeIds = q.size?.split(",").filter(Boolean) ?? [];
       const orderBy =
         q.sort === "price_asc"
           ? { basePrice: "asc" as const }
@@ -647,12 +725,12 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         collections: { some: { collectionId: collection.id } },
         status: "published" as const,
         isVisible: true,
-        ...(q.brand ? { brandId: q.brand } : {}),
-        ...(q.minPrice || q.maxPrice
+        ...(brandIds.length ? { brandId: { in: brandIds } } : {}),
+        ...(q.minPrice !== undefined || q.maxPrice !== undefined
           ? {
               basePrice: {
-                ...(q.minPrice ? { gte: q.minPrice } : {}),
-                ...(q.maxPrice ? { lte: q.maxPrice } : {}),
+                ...(q.minPrice !== undefined ? { gte: q.minPrice } : {}),
+                ...(q.maxPrice !== undefined ? { lte: q.maxPrice } : {}),
               },
             }
           : {}),
@@ -664,12 +742,11 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           : {}),
       };
 
+      const skip = (q.page - 1) * q.limit;
       const [products, total] = await Promise.all([
         prisma.product.findMany({
-          take: q.limit + 1,
-          ...(q.cursor
-            ? { cursor: { id: decodeCursor(q.cursor) }, skip: 1 }
-            : {}),
+          skip,
+          take: q.limit,
           where: collectionWhere,
           orderBy,
           select: {
@@ -677,19 +754,23 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
             name: true,
             slug: true,
             basePrice: true,
+            isIndicativePrice: true,
             hasDiscount: true,
             discountPrice: true,
             stockStatus: true,
             brand: { select: { id: true, name: true, slug: true } },
             media: {
-              take: 1,
+              where: { colorId: null, isDeleted: false } as never,
+              take: 6,
               orderBy: { position: "asc" as const },
-              select: { id: true, url: true, mediaType: true },
+              select: { id: true, url: true, mediaType: true, isPrimary: true },
             },
+            // Fetch all color variants (deduplicated below)
             variants: {
-              take: 10,
+              take: 40,
+              orderBy: { position: "asc" as const },
               select: {
-                id: true,
+                colorId: true,
                 color: { select: { id: true, name: true, hexCode: true } },
               },
             },
@@ -698,8 +779,18 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         prisma.product.count({ where: collectionWhere }),
       ]);
 
-      const { items, nextCursor } = paginate(products, q.limit);
-      return reply.send({ items, nextCursor, total });
+      // Deduplicate variant colors per product
+      const mappedProducts = products.map((p) => {
+        const seen = new Set<string>();
+        const variants = p.variants.filter((v) => {
+          if (!v.colorId || seen.has(v.colorId)) return false;
+          seen.add(v.colorId);
+          return true;
+        });
+        return { ...p, variants };
+      });
+
+      return reply.send(offsetPaginate(mappedProducts, total, q.page, q.limit));
     },
   });
 }
