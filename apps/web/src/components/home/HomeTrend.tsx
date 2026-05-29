@@ -58,9 +58,15 @@ export function HomeTrend({ collections }: { collections: Collection[] }) {
       </div>
 
       {/* Desktop: full-bleed horizontal scroll */}
-      <HorizontalScroll wrapperClassName="hidden md:block" progressClassName="hidden md:block">
+      <HorizontalScroll
+        wrapperClassName="hidden md:block"
+        progressClassName="hidden md:block"
+      >
         {collections.map((col) => (
-          <div key={col.id} className="relative flex-shrink-0 w-[300px] h-[480px]">
+          <div
+            key={col.id}
+            className="relative flex-shrink-0 w-[300px] h-[480px]"
+          >
             <CollectionCard collection={col} />
           </div>
         ))}

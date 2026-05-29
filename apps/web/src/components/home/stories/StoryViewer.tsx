@@ -549,9 +549,7 @@ export function StoryViewer({
             </div>
           )}
           {/* Active story — fills the container */}
-          <div className="absolute inset-0 z-20">
-            {activeStoryContent}
-          </div>
+          <div className="absolute inset-0 z-20">{activeStoryContent}</div>
         </div>
       </div>
     </div>
