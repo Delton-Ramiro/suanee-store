@@ -110,7 +110,11 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
               OR: [
                 { name: { contains: q.search, mode: "insensitive" as const } },
                 { id: { contains: q.search } },
-                { brand: { name: { contains: q.search, mode: "insensitive" as const } } },
+                {
+                  brand: {
+                    name: { contains: q.search, mode: "insensitive" as const },
+                  },
+                },
               ],
             }
           : {}),
@@ -336,6 +340,90 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
     },
   });
 
+  // GET /admin/products/:id/related — list related products
+  fastify.get<{ Params: { id: string } }>("/:id/related", {
+    preHandler: [fastify.requirePermission(Permissions.PRODUCTS_VIEW)],
+    schema: {
+      tags: ["Admin Products"],
+      security: [{ bearerAuth: [] }],
+      description: "List the 'also like' related products for a product.",
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string", format: "uuid" } },
+      },
+      response: {
+        200: { description: "Related products", type: "array", items: { type: "object" } },
+      },
+    },
+    handler: async (req, reply) => {
+      const rows = await prisma.productRelated.findMany({
+        where: { sourceId: req.params.id },
+        select: {
+          target: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              basePrice: true,
+              brand: { select: { id: true, name: true } },
+              media: {
+                where: { isPrimary: true, isDeleted: false } as never,
+                take: 1,
+                select: { url: true, mediaType: true },
+              },
+            },
+          },
+        },
+      });
+      return reply.send(rows.map((r) => r.target));
+    },
+  });
+
+  // PUT /admin/products/:id/related — replace all related products
+  fastify.put<{
+    Params: { id: string };
+    Body: { relatedProductIds: string[] };
+  }>("/:id/related", {
+    preHandler: [fastify.requirePermission(Permissions.PRODUCTS_EDIT)],
+    schema: {
+      tags: ["Admin Products"],
+      security: [{ bearerAuth: [] }],
+      description: "Replace the full list of 'also like' related products.",
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string", format: "uuid" } },
+      },
+      body: {
+        type: "object",
+        required: ["relatedProductIds"],
+        properties: {
+          relatedProductIds: { type: "array", items: { type: "string", format: "uuid" } },
+        },
+      },
+      response: {
+        200: { description: "OK", type: "object", properties: { count: { type: "integer" } } },
+      },
+    },
+    handler: async (req, reply) => {
+      const { id } = req.params;
+      const ids = req.body.relatedProductIds.filter((rid) => rid !== id); // no self-reference
+      await prisma.$transaction([
+        prisma.productRelated.deleteMany({ where: { sourceId: id } }),
+        ...(ids.length > 0
+          ? [
+              prisma.productRelated.createMany({
+                data: ids.map((targetId) => ({ sourceId: id, targetId })),
+                skipDuplicates: true,
+              }),
+            ]
+          : []),
+      ]);
+      return reply.send({ count: ids.length });
+    },
+  });
+
   // GET /admin/products/:id/financial
   fastify.get<{ Params: { id: string } }>("/:id/financial", {
     preHandler: [fastify.requirePermission(Permissions.PRODUCTS_VIEW)],
@@ -419,6 +507,7 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
           keyCharacteristics: { type: "string", nullable: true },
           productInfo: { type: "string", nullable: true },
           sendPolicy: { type: "string", nullable: true },
+          sizeAndFit: { type: "string", nullable: true },
           returnPolicy: { type: "string", nullable: true },
           deliveryEstimate: { type: "string", nullable: true },
           categoryIds: {
@@ -498,8 +587,8 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
         resolveAdminRoleKey(req.user),
         { status: body.status, isVisible: body.isVisible },
       );
-      const effectiveStatus =
-        (effectiveValues.status ?? body.status) as ProductStatus;
+      const effectiveStatus = (effectiveValues.status ??
+        body.status) as ProductStatus;
       const effectiveIsVisible = effectiveValues.isVisible ?? body.isVisible;
 
       // Validate filters belong to the selected category hierarchy
@@ -663,14 +752,8 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
           keyCharacteristics: { type: "string", nullable: true },
           productInfo: { type: "string", nullable: true },
           sendPolicy: { type: "string", nullable: true },
+          sizeAndFit: { type: "string", nullable: true },
           returnPolicy: { type: "string", nullable: true },
-          deliveryEstimate: { type: "string", nullable: true },
-          categoryIds: {
-            type: "array",
-            items: { type: "string", format: "uuid" },
-          },
-          sizeIds: { type: "array", items: { type: "string", format: "uuid" } },
-          variants: { type: "array", items: { type: "object" } },
           media: { type: "array", items: { type: "object" } },
           attributes: { type: "array", items: { type: "object" } },
         },
@@ -722,13 +805,13 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
         resolveAdminRoleKey(req.user),
         productData,
       );
-      const {
-        status: effectiveStatus,
-        ...effectiveProductDataRest
-      } = effectiveProductDataRaw;
+      const { status: effectiveStatus, ...effectiveProductDataRest } =
+        effectiveProductDataRaw;
       const effectiveProductData: Prisma.ProductUpdateInput = {
         ...effectiveProductDataRest,
-        ...(effectiveStatus ? { status: effectiveStatus as ProductStatus } : {}),
+        ...(effectiveStatus
+          ? { status: effectiveStatus as ProductStatus }
+          : {}),
       };
 
       // BUG-B: Validate attributes in PATCH as well, using effective categoryIds

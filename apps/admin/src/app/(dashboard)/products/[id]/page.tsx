@@ -4,7 +4,7 @@ import { use, useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Save, X } from "lucide-react";
 import { toast } from "sonner";
-import { useAdminProduct, useUpdateProduct } from "@/lib/hooks/useAdminProduct";
+import { useAdminProduct, useUpdateProduct, useRelatedProducts, useUpdateRelatedProducts, type RelatedProductItem } from "@/lib/hooks/useAdminProduct";
 import type { MediaDraft } from "@/components/products/ProductMediaZone";
 import ProductMediaZone from "@/components/products/ProductMediaZone";
 import { useBrands } from "@/lib/hooks/useBrands";
@@ -203,6 +203,8 @@ export default function ProductEditPage({
     enabled: allowProductView,
   });
   const updateProduct = useUpdateProduct(id);
+  const { data: existingRelated } = useRelatedProducts(id);
+  const updateRelated = useUpdateRelatedProducts(id);
 
   /* Reference data */
   const { data: brandsData } = useBrands({ limit: 10 });
@@ -234,6 +236,7 @@ export default function ProductEditPage({
   const [keyCharacteristics, setKeyCharacteristics] = useState("");
   const [productInfo, setProductInfo] = useState("");
   const [sendPolicy, setSendPolicy] = useState("");
+  const [sizeAndFit, setSizeAndFit] = useState("");
   const [returnPolicy, setReturnPolicy] = useState("");
   const [deliveryEstimate, setDeliveryEstimate] = useState("");
   const [supplierLink, setSupplierLink] = useState("");
@@ -310,7 +313,32 @@ export default function ProductEditPage({
     string[]
   >([]);
 
-  /* ── Init from product ─────────────────────────────────────────────────── */
+  /* ── Related products state ────────────────────────────────────────────── */
+  const [relatedProducts, setRelatedProducts] = useState<RelatedProductItem[]>([]);
+  const [relatedSearch, setRelatedSearch] = useState("");
+  const [relatedResults, setRelatedResults] = useState<RelatedProductItem[]>([]);
+  const [relatedSearching, setRelatedSearching] = useState(false);
+  const relatedSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (existingRelated) setRelatedProducts(existingRelated);
+  }, [existingRelated]);
+
+  useEffect(() => {
+    if (!relatedSearch.trim()) { setRelatedResults([]); return; }
+    if (relatedSearchTimer.current) clearTimeout(relatedSearchTimer.current);
+    relatedSearchTimer.current = setTimeout(async () => {
+      setRelatedSearching(true);
+      try {
+        const res = await apiFetch<{ items: RelatedProductItem[] }>(
+          `/admin/products?search=${encodeURIComponent(relatedSearch)}&limit=10`
+        );
+        const existing = new Set(relatedProducts.map((p) => p.id));
+        setRelatedResults((res.items ?? []).filter((p) => p.id !== id && !existing.has(p.id)));
+      } catch { /* ignore */ } finally { setRelatedSearching(false); }
+    }, 300);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [relatedSearch, id]);
   useEffect(() => {
     if (!product) return;
     setName(product.name);
@@ -325,6 +353,7 @@ export default function ProductEditPage({
     setKeyCharacteristics(product.keyCharacteristics ?? "");
     setProductInfo(product.productInfo ?? "");
     setSendPolicy(product.sendPolicy ?? "");
+    setSizeAndFit((product as unknown as { sizeAndFit?: string }).sizeAndFit ?? "");
     setReturnPolicy(product.returnPolicy ?? "");
     setDeliveryEstimate(product.deliveryEstimate ?? "");
     setSupplierLink(
@@ -862,64 +891,50 @@ export default function ProductEditPage({
   function addFilterAssignment() {
     if (!canEditProduct) return;
 
-    const newAssignments: FilterAssignment[] = [];
+    // filterIds the user interacted with this round (may be additions or removals)
+    const touched = [
+      {
+        filterId: l0FilterId,
+        valueIds: l0FilterValueIds,
+        level: "L0" as const,
+      },
+      {
+        filterId: l1FilterId,
+        valueIds: l1FilterValueIds,
+        level: "L1" as const,
+      },
+      {
+        filterId: l2FilterId,
+        valueIds: l2FilterValueIds,
+        level: "L2" as const,
+      },
+    ].filter((e) => e.filterId !== "");
 
-    if (l0FilterId && l0FilterValueIds.length > 0) {
-      const filter = allFilters.find((f) => f.id === l0FilterId);
-      if (filter) {
-        const values = filter.options
-          .filter((o) => l0FilterValueIds.includes(o.id))
-          .map((o) => ({ id: o.id, label: o.label, value: o.value }));
-        newAssignments.push({
-          filterId: l0FilterId,
-          filterName: filter.name,
-          categoryLevel: "L0",
-          values,
-        });
-      }
-    }
-
-    if (l1FilterId && l1FilterValueIds.length > 0) {
-      const filter = allFilters.find((f) => f.id === l1FilterId);
-      if (filter) {
-        const values = filter.options
-          .filter((o) => l1FilterValueIds.includes(o.id))
-          .map((o) => ({ id: o.id, label: o.label, value: o.value }));
-        newAssignments.push({
-          filterId: l1FilterId,
-          filterName: filter.name,
-          categoryLevel: "L1",
-          values,
-        });
-      }
-    }
-
-    if (l2FilterId && l2FilterValueIds.length > 0) {
-      const filter = allFilters.find((f) => f.id === l2FilterId);
-      if (filter) {
-        const values = filter.options
-          .filter((o) => l2FilterValueIds.includes(o.id))
-          .map((o) => ({ id: o.id, label: o.label, value: o.value }));
-        newAssignments.push({
-          filterId: l2FilterId,
-          filterName: filter.name,
-          categoryLevel: "L2",
-          values,
-        });
-      }
-    }
-
-    if (newAssignments.length === 0) return;
+    if (touched.length === 0) return;
 
     setFilterAssignments((prev) => {
       let next = [...prev];
-      for (const a of newAssignments) {
-        // Keyed by filterId only — a filter can only be in one column due to dedup
-        const idx = next.findIndex((x) => x.filterId === a.filterId);
-        if (idx >= 0) {
-          next[idx] = { ...next[idx]!, values: a.values };
+      for (const { filterId, valueIds, level } of touched) {
+        const idx = next.findIndex((x) => x.filterId === filterId);
+        if (valueIds.length === 0) {
+          // All values removed — drop the assignment entirely
+          if (idx >= 0) next.splice(idx, 1);
         } else {
-          next.push(a);
+          const filter = allFilters.find((f) => f.id === filterId);
+          if (!filter) continue;
+          const values = filter.options
+            .filter((o) => valueIds.includes(o.id))
+            .map((o) => ({ id: o.id, label: o.label, value: o.value }));
+          if (idx >= 0) {
+            next[idx] = { ...next[idx]!, values };
+          } else {
+            next.push({
+              filterId,
+              filterName: filter.name,
+              categoryLevel: level,
+              values,
+            });
+          }
         }
       }
       return next;
@@ -931,6 +946,20 @@ export default function ProductEditPage({
     setL1FilterValueIds([]);
     setL2FilterId("");
     setL2FilterValueIds([]);
+  }
+
+  /** Remove a single value from an existing assignment; drop assignment if empty. */
+  function removeFilterValue(filterId: string, valueId: string) {
+    if (!canEditProduct) return;
+    setFilterAssignments((prev) =>
+      prev
+        .map((a) =>
+          a.filterId === filterId
+            ? { ...a, values: a.values.filter((v) => v.id !== valueId) }
+            : a,
+        )
+        .filter((a) => a.values.length > 0),
+    );
   }
 
   /* ── Supplier helpers ──────────────────────────────────────────────────── */
@@ -1013,6 +1042,7 @@ export default function ProductEditPage({
       keyCharacteristics: keyCharacteristics || undefined,
       productInfo: productInfo || undefined,
       sendPolicy: sendPolicy || undefined,
+      sizeAndFit: sizeAndFit || undefined,
       returnPolicy: returnPolicy || undefined,
       deliveryEstimate: deliveryEstimate || undefined,
       sizeGuideId: sizeGuideId || undefined,
@@ -1408,6 +1438,15 @@ export default function ProductEditPage({
                   onChange={setSendPolicy}
                   placeholder="A sua política de envio ficará aqui…"
                   rows={2}
+                />
+              </div>
+              <div>
+                <FieldLabel>Tamanho e ajustes</FieldLabel>
+                <Textarea
+                  value={sizeAndFit}
+                  onChange={setSizeAndFit}
+                  placeholder="Informações sobre o tamanho e ajuste do produto…"
+                  rows={3}
                 />
               </div>
               <div>
@@ -2280,9 +2319,19 @@ export default function ProductEditPage({
                                   {a.values.map((v) => (
                                     <span
                                       key={v.id}
-                                      className="inline-flex px-3 py-1 rounded-full bg-navy text-white text-[12px] font-figtree"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-navy text-white text-[12px] font-figtree"
                                     >
                                       {v.label}
+                                      {canEditProduct && (
+                                        <button
+                                          type="button"
+                                          onClick={() => removeFilterValue(a.filterId, v.id)}
+                                          className="opacity-70 hover:opacity-100 transition-opacity"
+                                          aria-label={`Remover ${v.label}`}
+                                        >
+                                          <X size={11} />
+                                        </button>
+                                      )}
                                     </span>
                                   ))}
                                 </div>
@@ -2320,6 +2369,126 @@ export default function ProductEditPage({
                 </>
               );
             })()}
+        </div>
+
+        {/* ════════════════════ TAMBÉM PODE GOSTAR ══════════════════════════ */}
+        <div className="bg-card rounded-2xl p-6 flex flex-col gap-5">
+          <div className="flex items-center justify-between">
+            <SectionHeading>Também pode gostar</SectionHeading>
+            {canEditProduct && relatedProducts.length > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  updateRelated.mutate(relatedProducts.map((p) => p.id))
+                }
+                disabled={updateRelated.isPending}
+                className="h-10 px-5 rounded-xl bg-navy text-white text-s font-semibold font-figtree hover:bg-primary transition-colors disabled:opacity-50"
+              >
+                {updateRelated.isPending ? "A guardar…" : "Guardar"}
+              </button>
+            )}
+          </div>
+
+          {/* Selected products preview */}
+          {relatedProducts.length > 0 && (
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+              {relatedProducts.map((p) => {
+                const thumb = p.media?.[0]?.url ?? null;
+                return (
+                  <div key={p.id} className="relative shrink-0 w-[100px]">
+                    <div className="w-[100px] h-[100px] rounded-xl overflow-hidden bg-surface-hover border border-border-light">
+                      {thumb ? (
+                        <img src={thumb} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">Sem imagem</div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-text-dark font-figtree truncate mt-1">{p.name}</p>
+                    {canEditProduct && (
+                      <button
+                        type="button"
+                        onClick={() => setRelatedProducts((prev) => prev.filter((x) => x.id !== p.id))}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white flex items-center justify-center hover:opacity-80 transition-opacity"
+                        aria-label="Remover"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Search */}
+          {canEditProduct && (
+            <div className="relative">
+              <input
+                type="text"
+                value={relatedSearch}
+                onChange={(e) => setRelatedSearch(e.target.value)}
+                placeholder="Pesquisar produto…"
+                className="w-full h-12 px-3 rounded-xl border border-border bg-card text-text-dark text-sm font-figtree placeholder:text-text-label focus:outline-none focus:border-accent transition-colors"
+              />
+              {(relatedSearching || relatedResults.length > 0) && (
+                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                  {relatedSearching && (
+                    <p className="px-4 py-3 text-sm text-text-muted font-figtree">A pesquisar…</p>
+                  )}
+                  {!relatedSearching && relatedResults.length === 0 && (
+                    <p className="px-4 py-3 text-sm text-text-muted font-figtree">Sem resultados</p>
+                  )}
+                  {relatedResults.map((p) => {
+                    const thumb = p.media?.[0]?.url ?? null;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setRelatedProducts((prev) =>
+                            prev.find((x) => x.id === p.id) ? prev : [...prev, p]
+                          );
+                          setRelatedSearch("");
+                          setRelatedResults([]);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-hover transition-colors border-b border-border-light last:border-0"
+                      >
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-surface-hover shrink-0">
+                          {thumb ? (
+                            <img src={thumb} alt={p.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-border" />
+                          )}
+                        </div>
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="text-sm text-text-dark font-figtree truncate">{p.name}</p>
+                          <p className="text-xs text-text-muted font-figtree">{p.brand?.name}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {relatedProducts.length === 0 && !canEditProduct && (
+            <p className="text-sm text-text-muted font-figtree">Nenhum produto associado.</p>
+          )}
+
+          {/* Save button when there's no header button (empty list) */}
+          {canEditProduct && relatedProducts.length === 0 && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => updateRelated.mutate([])}
+                disabled={updateRelated.isPending}
+                className="h-10 px-5 rounded-xl bg-navy text-white text-s font-semibold font-figtree hover:bg-primary transition-colors disabled:opacity-50"
+              >
+                {updateRelated.isPending ? "A guardar…" : "Guardar"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ════════════════════ ANÁLISE FINANCEIRA ══════════════════════════ */}

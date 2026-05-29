@@ -233,6 +233,7 @@ export const CreateProductBaseSchema = z.object({
   keyCharacteristics: z.string().optional(),
   productInfo: z.string().optional(),
   sendPolicy: z.string().optional(),
+  sizeAndFit: z.string().optional(),
   returnPolicy: z.string().optional(),
   deliveryEstimate: z.string().optional(),
   supplierLink: z.string().url().optional(),

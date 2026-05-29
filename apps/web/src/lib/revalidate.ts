@@ -8,4 +8,6 @@ export const Revalidate = {
   catalog: 300,
   /** Stories — changes more often (2 min) */
   stories: 120,
+  /** Product listing pages — moderate freshness (1 min) */
+  products: 60,
 } as const;

@@ -404,6 +404,7 @@ model Product {
   keyCharacteristics String?
   productInfo        String?
   sendPolicy         String?
+  sizeAndFit         String?
   returnPolicy       String?
   deliveryEstimate   String?
   supplierLink       String?
@@ -417,23 +418,37 @@ model Product {
   brand     Brand      @relation(fields: [brandId], references: [id], onDelete: Restrict)
   sizeGuide SizeGuide? @relation(fields: [sizeGuideId], references: [id], onDelete: SetNull)
 
-  collections   ProductCollection[]
-  categories    ProductCategory[]
-  variants      ProductVariant[]
-  media         ProductMedia[]
-  sizes         ProductSize[]
-  attributes    ProductAttribute[]
-  favorites     Favorite[]
-  orderItems    OrderItem[]
-  storyProducts StorySlideProduct[]
-  suppliers     ProductSupplier[]
-  competitors   ProductCompetitor[]
-  cartItems     CartItem[]
+  collections      ProductCollection[]
+  categories       ProductCategory[]
+  variants         ProductVariant[]
+  media            ProductMedia[]
+  sizes            ProductSize[]
+  attributes       ProductAttribute[]
+  favorites        Favorite[]
+  orderItems       OrderItem[]
+  storyProducts    StorySlideProduct[]
+  suppliers        ProductSupplier[]
+  competitors      ProductCompetitor[]
+  cartItems        CartItem[]
+  relatedProducts  ProductRelated[]    @relation("ProductSource")
+  relatedByProducts ProductRelated[]   @relation("ProductTarget")
 
   @@index([brandId])
   @@index([status, isVisible])
   @@index([createdAt])
   @@map("products")
+}
+
+model ProductRelated {
+  sourceId  String
+  targetId  String
+
+  source Product @relation("ProductSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Product @relation("ProductTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([sourceId, targetId])
+  @@index([sourceId])
+  @@map("product_related")
 }
 
 model ProductCategory {
