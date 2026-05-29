@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Search, Heart, User, ShoppingBag, Menu, X } from "lucide-react";
-import { useCategories } from "@/lib/hooks/useCategories";
+import { useCategoryTree } from "@/lib/hooks/useCategoryTree";
+import { MegaMenu } from "@/components/MegaMenu";
 
 /* ─── Icon sizes ──────────────────────────────────────────────── */
 const iconCls = "w-[22px] h-[22px] stroke-[1.5]";
@@ -39,10 +40,38 @@ function IconBtn({
 /* ─── Component ───────────────────────────────────────────────── */
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { data } = useCategories();
-  const categories = (data ?? [])
+  const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
+  const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { data: tree } = useCategoryTree();
+  const categories = (tree ?? [])
     .filter((c) => !!c?.slug && !!c?.name)
     .sort((a, b) => a.position - b.position);
+
+  const openCategory = categories.find((c) => c.id === openCategoryId) ?? null;
+
+  const scheduleClose = useCallback(() => {
+    closeTimeout.current = setTimeout(() => setOpenCategoryId(null), 150);
+  }, []);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimeout.current) clearTimeout(closeTimeout.current);
+  }, []);
+
+  const openMenu = useCallback(
+    (id: string) => {
+      cancelClose();
+      setOpenCategoryId(id);
+    },
+    [cancelClose],
+  );
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeout.current) clearTimeout(closeTimeout.current);
+    };
+  }, []);
 
   return (
     <>
@@ -53,20 +82,23 @@ export default function Header() {
           <Link
             href="/"
             className="font-bold text-[22px] tracking-[0.04em] text-brand uppercase leading-none shrink-0"
+            onClick={() => setOpenCategoryId(null)}
           >
             SUANEE
           </Link>
 
           {/* Center — first-level categories */}
           <nav
-            className="hidden md:flex flex-1 items-center justify-center pr-10 xl:pr-14 gap-4 lg:gap-6 xl:gap-7"
+            className="hidden md:flex flex-1 items-center justify-center pr-10 xl:pr-14 gap-1"
             aria-label="Categorias"
           >
             {categories.map((cat) => (
               <Link
                 key={cat.id}
-                href={`/produtos?categoria=${encodeURIComponent(cat.slug)}`}
-                className="text-sm font-medium text-brand hover:text-primary whitespace-nowrap transition-colors duration-150"
+                href={`/categorias/${cat.slug}`}
+                onMouseEnter={() => openMenu(cat.id)}
+                onMouseLeave={scheduleClose}
+              className="text-sm font-medium whitespace-nowrap transition-colors duration-150 px-3 py-1.5 rounded-md text-brand hover:text-primary"
               >
                 {cat.name}
               </Link>
@@ -137,6 +169,30 @@ export default function Header() {
         </div>
       </header>
 
+      {/* ── Mega menu panel (desktop only) ───────────────────────── */}
+      {openCategory && openCategory.children.length > 0 && (
+        <div className="hidden md:block">
+          {/* Dark backdrop — covers page below the menu */}
+          <div
+            className="fixed top-[98px] inset-x-0 bottom-0 z-30 bg-black/30 animate-[fade-in_0.2s_ease_both]"
+            onClick={() => setOpenCategoryId(null)}
+          />
+          {/* Panel */}
+          <div
+            className="fixed top-[98px] left-0 right-0 z-40"
+            onMouseEnter={cancelClose}
+            onMouseLeave={scheduleClose}
+          >
+            <MegaMenu
+              key={openCategory.id}
+              category={openCategory}
+              onMouseEnter={cancelClose}
+              onMouseLeave={scheduleClose}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── Mobile menu drawer ───────────────────────────────── */}
       {mobileOpen && (
         <>
@@ -153,7 +209,7 @@ export default function Header() {
                   {categories.map((cat) => (
                     <Link
                       key={cat.id}
-                      href={`/produtos?categoria=${encodeURIComponent(cat.slug)}`}
+                      href={`/categorias/${cat.slug}`}
                       onClick={() => setMobileOpen(false)}
                       className="text-base font-medium text-brand hover:text-primary transition-colors duration-150"
                     >

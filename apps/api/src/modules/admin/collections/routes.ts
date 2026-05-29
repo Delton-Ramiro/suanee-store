@@ -9,7 +9,7 @@ import {
   Permissions,
 } from "@ecommerce/types";
 import { audit } from "../../../lib/audit.js";
-import { cacheDel, CacheKeys } from "../../../lib/redis.js";
+
 import { offsetPaginate } from "../../../lib/utils.js";
 
 const CollectionListQuery = z.object({
@@ -85,6 +85,47 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
         }),
       ]);
       return reply.send(offsetPaginate(collections, total, q.page, q.limit));
+    },
+  });
+
+  // GET /admin/collections/next-position — returns next available position for a group
+  fastify.get("/next-position", {
+    preHandler: [fastify.authenticateAdmin],
+    schema: {
+      tags: ["Admin Collections"],
+      security: [{ bearerAuth: [] }],
+      description:
+        "Returns the next available position for a collection group (categoryId = null → global; categoryId = uuid → category-scoped).",
+      querystring: {
+        type: "object",
+        properties: {
+          categoryId: { type: "string", format: "uuid" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            nextPosition: { type: "integer" },
+            occupiedPositions: { type: "array", items: { type: "integer" } },
+          },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      const { categoryId } = z
+        .object({ categoryId: z.string().uuid().optional() })
+        .parse(req.query);
+
+      const all = await prisma.collection.findMany({
+        where: { categoryId: categoryId ?? null },
+        orderBy: { position: "asc" },
+        select: { position: true },
+      });
+      const occupiedPositions = all.map((c) => c.position);
+      const maxPos =
+        occupiedPositions.length > 0 ? Math.max(...occupiedPositions) : 0;
+      return reply.send({ nextPosition: maxPos + 1, occupiedPositions });
     },
   });
 
@@ -271,7 +312,6 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
         skipDuplicates: true,
       });
 
-      await cacheDel(CacheKeys.collectionList());
       await audit({
         adminId: req.user.sub,
         action: "collection.products_added",
@@ -329,7 +369,6 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
             },
           },
         });
-        await cacheDel(CacheKeys.collectionList());
         await audit({
           adminId: req.user.sub,
           action: "collection.product_removed",
@@ -357,10 +396,21 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
           coverImageUrl: { type: "string", nullable: true },
           position: { type: "integer", default: 0 },
           isActive: { type: "boolean", default: true },
+          categoryId: { type: "string", format: "uuid", nullable: true },
         },
       },
       response: {
         201: { description: "Collection created", type: "object" },
+        400: {
+          description: "Invalid categoryId",
+          type: "object",
+          properties: { error: { type: "string" } },
+        },
+        409: {
+          description: "Position already occupied",
+          type: "object",
+          properties: { error: { type: "string" } },
+        },
         401: {
           description: "Unauthorized",
           type: "object",
@@ -370,8 +420,32 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
     },
     handler: async (req, reply) => {
       const body = CreateCollectionSchema.parse(req.body);
+
+      if (body.categoryId) {
+        const cat = await prisma.category.findUnique({
+          where: { id: body.categoryId },
+          select: { id: true, level: true },
+        });
+        if (!cat)
+          return reply.status(400).send({ error: "Categoria não encontrada" });
+        if (cat.level !== 0)
+          return reply.status(400).send({
+            error:
+              "Apenas categorias de primeiro nível podem ser associadas a coleções",
+          });
+      }
+
+      // Duplicate position check within the same group
+      const positionConflict = await prisma.collection.findFirst({
+        where: { position: body.position ?? 0, categoryId: body.categoryId ?? null },
+        select: { id: true, name: true },
+      });
+      if (positionConflict)
+        return reply.status(409).send({
+          error: `Posição ${body.position ?? 0} já está ocupada pela coleção "${positionConflict.name}". Escolha outro índice.`,
+        });
+
       const collection = await prisma.collection.create({ data: body });
-      await cacheDel(CacheKeys.collectionList());
       await audit({
         adminId: req.user.sub,
         action: "collection.created",
@@ -401,10 +475,21 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
           slug: { type: "string" },
           imageUrl: { type: "string", nullable: true },
           position: { type: "integer" },
+          categoryId: { type: "string", format: "uuid", nullable: true },
         },
       },
       response: {
         200: { description: "Collection updated", type: "object" },
+        400: {
+          description: "Invalid categoryId",
+          type: "object",
+          properties: { error: { type: "string" } },
+        },
+        409: {
+          description: "Position already occupied",
+          type: "object",
+          properties: { error: { type: "string" } },
+        },
         404: {
           description: "Collection not found",
           type: "object",
@@ -419,16 +504,56 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
     },
     handler: async (req, reply) => {
       const body = UpdateCollectionSchema.parse(req.body);
+
+      if (body.categoryId) {
+        const cat = await prisma.category.findUnique({
+          where: { id: body.categoryId },
+          select: { id: true, level: true },
+        });
+        if (!cat)
+          return reply.status(400).send({ error: "Categoria não encontrada" });
+        if (cat.level !== 0)
+          return reply
+            .status(400)
+            .send({
+              error:
+                "Apenas categorias de nível 0 podem ser associadas a coleções",
+            });
+      }
+
       const before = await prisma.collection.findUnique({
         where: { id: req.params.id },
       });
       if (!before)
         return reply.status(404).send({ error: "Collection not found" });
+
+      // Resolve effective values after the patch
+      const effectivePosition = body.position !== undefined ? body.position : before.position;
+      const effectiveCategoryId =
+        body.categoryId !== undefined ? body.categoryId : before.categoryId;
+
+      // Duplicate position check — only if position or group is changing
+      const positionChanging = effectivePosition !== before.position || effectiveCategoryId !== before.categoryId;
+      if (positionChanging) {
+        const positionConflict = await prisma.collection.findFirst({
+          where: {
+            position: effectivePosition,
+            categoryId: effectiveCategoryId ?? null,
+            NOT: { id: req.params.id },
+          },
+          select: { id: true, name: true },
+        });
+        if (positionConflict)
+          return reply.status(409).send({
+            error: `Posição ${effectivePosition} já está ocupada pela coleção "${positionConflict.name}". Escolha outro índice.`,
+          });
+      }
+
       const collection = await prisma.collection.update({
         where: { id: req.params.id },
         data: body,
       });
-      await cacheDel(CacheKeys.collectionList());
+
       await audit({
         adminId: req.user.sub,
         action: "collection.updated",
@@ -467,7 +592,7 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
         where: { collectionId: req.params.id },
       });
       await prisma.collection.delete({ where: { id: req.params.id } });
-      await cacheDel(CacheKeys.collectionList());
+
       await audit({
         adminId: req.user.sub,
         action: "collection.deleted",
@@ -515,7 +640,6 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
           prisma.collection.update({ where: { id }, data: { position } }),
         ),
       );
-      await cacheDel(CacheKeys.collectionList());
       return reply.send({ success: true });
     },
   });

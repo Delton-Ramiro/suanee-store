@@ -484,6 +484,75 @@ export default async function adminCategoriesRoutes(fastify: FastifyInstance) {
     },
   });
 
+  // GET /admin/categories/next-position — next available position in a scope
+  fastify.get("/next-position", {
+    preHandler: [fastify.authenticateAdmin],
+    schema: {
+      tags: ["Admin Categories"],
+      security: [{ bearerAuth: [] }],
+      description:
+        "Returns the next available position for a category at a given level and optional parent. Useful for pre-filling the position field when creating a new category.",
+      querystring: {
+        type: "object",
+        required: ["level"],
+        properties: {
+          level: {
+            type: "integer",
+            minimum: 0,
+            maximum: 2,
+            description:
+              "Category level (0=principal, 1=secondary, 2=tertiary)",
+          },
+          parentId: {
+            type: "string",
+            format: "uuid",
+            description: "Parent category ID (required for level 1 and 2)",
+          },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            nextPosition: { type: "integer" },
+            occupiedPositions: { type: "array", items: { type: "integer" } },
+          },
+        },
+        400: {
+          description: "Invalid parameters",
+          type: "object",
+          properties: { error: { type: "string" } },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      const { level, parentId } = z
+        .object({
+          level: z.coerce.number().int().min(0).max(2),
+          parentId: z.string().uuid().optional(),
+        })
+        .parse(req.query);
+
+      if (level > 0 && !parentId) {
+        return reply
+          .status(400)
+          .send({
+            error: "parentId é obrigatório para categorias de nível 1 e 2",
+          });
+      }
+
+      const all = await prisma.category.findMany({
+        where: { level, parentId: parentId ?? null },
+        orderBy: { position: "asc" },
+        select: { position: true },
+      });
+      const occupiedPositions = all.map((c) => c.position);
+      const maxPos =
+        occupiedPositions.length > 0 ? Math.max(...occupiedPositions) : 0;
+      return reply.send({ nextPosition: maxPos + 1, occupiedPositions });
+    },
+  });
+
   // GET /admin/categories/:id — single category with parent chain and children
   fastify.get<{ Params: { id: string } }>("/:id", {
     preHandler: [fastify.authenticateAdmin],

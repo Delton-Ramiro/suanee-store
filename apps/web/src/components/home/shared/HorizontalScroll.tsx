@@ -19,7 +19,11 @@ interface HorizontalScrollProps {
  * Breaks out of the container-web constraint without causing page-level
  * horizontal overflow, and clips scrolled-past content at the container edge.
  */
-export function HorizontalScroll({ children, wrapperClassName = "", progressClassName = "" }: HorizontalScrollProps) {
+export function HorizontalScroll({
+  children,
+  wrapperClassName = "",
+  progressClassName = "",
+}: HorizontalScrollProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollPct, setScrollPct] = useState(0);
 
@@ -58,7 +62,7 @@ export function HorizontalScroll({ children, wrapperClassName = "", progressClas
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="flex gap-[5px] overflow-x-auto no-scrollbar overscroll-x-contain"
+          className="flex gap-1.25 overflow-x-auto no-scrollbar overscroll-x-contain"
           style={{
             paddingLeft: LEFT_EDGE,
             paddingRight: 5,
@@ -69,7 +73,9 @@ export function HorizontalScroll({ children, wrapperClassName = "", progressClas
       </div>
 
       {/* Scroll progress bar */}
-      <div className={`mt-4 h-[5px] bg-gray-100 overflow-hidden rounded-full ${progressClassName}`}>
+      <div
+        className={`mt-4 h-[5px] bg-gray-100 overflow-hidden rounded-full ${progressClassName}`}
+      >
         <div
           className="h-full rounded-full transition-[width] duration-100"
           style={{

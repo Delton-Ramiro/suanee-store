@@ -13,6 +13,7 @@ export type Collection = {
   coverImageUrl: string | null;
   position: number;
   isActive: boolean;
+  categoryId: string | null;
   createdAt: string;
   updatedAt: string;
   _count?: { products: number };
@@ -66,6 +67,7 @@ type CreateCollectionPayload = {
   coverImageUrl?: string | null;
   position?: number;
   isActive?: boolean;
+  categoryId?: string | null;
 };
 
 type UpdateCollectionPayload = Partial<CreateCollectionPayload>;
@@ -216,5 +218,16 @@ export function useRemoveProductFromCollection() {
       toast.success("Produto removido da coleção");
     },
     onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useCollectionNextPosition(categoryId?: string | null) {
+  const qs = categoryId ? `?categoryId=${categoryId}` : "";
+  return useQuery<{ nextPosition: number; occupiedPositions: number[] }>({
+    queryKey: ["collection-next-position", categoryId ?? null],
+    queryFn: () =>
+      apiFetch<{ nextPosition: number; occupiedPositions: number[] }>(
+        `/admin/collections/next-position${qs}`,
+      ),
   });
 }

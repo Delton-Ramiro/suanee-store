@@ -15,7 +15,7 @@ export type Brand = {
 
 // ─── Single brand card ────────────────────────────────────────────────────────
 
-function BrandCard({ brand }: { brand: Brand }) {
+export function BrandCard({ brand }: { brand: Brand }) {
   const bg = brand.logoUrl ?? brand.landingImage2Url;
 
   return (

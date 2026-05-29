@@ -5,8 +5,14 @@ import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import ImageUpload from "@/components/ui/ImageUpload";
 import Toggle from "@/components/ui/Toggle";
+import SingleSelectDropdown from "@/components/ui/SingleSelectDropdown";
+import { buildPositionOptions } from "@/lib/positions";
 import { slugify } from "@/lib/format";
-import { useCreateCollection } from "@/lib/hooks/useCollections";
+import {
+  useCreateCollection,
+  useCollectionNextPosition,
+} from "@/lib/hooks/useCollections";
+import { useCategories } from "@/lib/hooks/useCategories";
 import { useAuth } from "@/lib/auth";
 import { canManageCollections } from "@/lib/admin-access";
 import AccessDeniedState from "@/components/AccessDeniedState";
@@ -56,14 +62,35 @@ export default function NewCollectionPage() {
   const [slug, setSlug] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
-  const [position, setPosition] = useState<number>(0);
+  const [position, setPosition] = useState<number>(1);
+  const [isCategorized, setIsCategorized] = useState(false);
+  const [categoryId, setCategoryId] = useState<string>("");
 
   const createCollection = useCreateCollection();
+  const { data: categories = [] } = useCategories({ level: 0 });
+  const { data: nextPositionData } = useCollectionNextPosition(
+    isCategorized ? categoryId || null : null,
+  );
+
+  const positionOptions = nextPositionData
+    ? buildPositionOptions({
+        occupiedPositions: nextPositionData.occupiedPositions,
+        nextPosition: nextPositionData.nextPosition,
+        startFrom: 1,
+      })
+    : [];
 
   /* Auto-generate slug silently from name */
   useEffect(() => {
     setSlug(slugify(name));
   }, [name]);
+
+  /* Auto-set position when category association changes */
+  useEffect(() => {
+    if (nextPositionData?.nextPosition !== undefined) {
+      setPosition(nextPositionData.nextPosition);
+    }
+  }, [nextPositionData, isCategorized, categoryId]);
 
   const canSubmit = !createCollection.isPending && name.trim().length > 0;
 
@@ -81,6 +108,7 @@ export default function NewCollectionPage() {
         coverImageUrl: coverImageUrl || null,
         isActive,
         position,
+        categoryId: isCategorized && categoryId ? categoryId : null,
       });
       router.push("/collections");
     } catch {
@@ -133,27 +161,57 @@ export default function NewCollectionPage() {
             placeholder="ex: Verão 2025"
           />
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-s font-medium text-text-body font-figtree">
-              Índice de exibição
-            </label>
-            <div className="relative">
-              <select
-                value={String(position)}
-                onChange={(e) => setPosition(Number(e.target.value))}
-                className="w-full appearance-none px-3 py-2.5 pr-10 rounded-lg border border-border bg-card text-text-dark text-sm font-figtree focus:outline-none focus:border-accent transition-colors"
-              >
-                {Array.from({ length: 21 }, (_, i) => (
-                  <option key={i} value={String(i)}>
-                    {i}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
-                <ChevronDown size={16} />
+          {/* Category association toggle */}
+          <div className="border-t border-border-light pt-4">
+            <Toggle
+              label="Associar a categoria"
+              value={isCategorized}
+              onChange={(v) => {
+                setIsCategorized(v);
+                if (!v) setCategoryId("");
+              }}
+            />
+            <p className="text-[12px] text-text-subtle font-figtree mt-1">
+              Coleções associadas só aparecem na página da categoria escolhida,
+              não na página inicial.
+            </p>
+          </div>
+
+          {/* Category selector — only when toggled on */}
+          {isCategorized && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-s font-medium text-text-body font-figtree">
+                Categoria
+              </label>
+              <div className="relative">
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  required={isCategorized}
+                  className="w-full appearance-none px-3 py-2.5 pr-10 rounded-lg border border-border bg-card text-text-dark text-sm font-figtree focus:outline-none focus:border-accent transition-colors"
+                >
+                  <option value="">Selecionar categoria…</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
+                  <ChevronDown size={16} />
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Position index */}
+          <SingleSelectDropdown
+            label="Índice de exibição"
+            options={positionOptions}
+            value={String(position)}
+            onChange={(v) => setPosition(Number(v))}
+            placeholder="Selecionar índice…"
+          />
 
           <div className="border-t border-border-light pt-4 mt-2">
             <Toggle label="Visível" value={isActive} onChange={setIsActive} />

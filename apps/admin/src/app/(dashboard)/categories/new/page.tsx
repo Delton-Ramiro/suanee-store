@@ -8,9 +8,12 @@ import {
   useCategories,
   useCategory,
   useCreateCategory,
+  useCategoryNextPosition,
 } from "@/lib/hooks/useCategories";
 import ImageUpload from "@/components/ui/ImageUpload";
 import Toggle from "@/components/ui/Toggle";
+import SingleSelectDropdown from "@/components/ui/SingleSelectDropdown";
+import { buildPositionOptions } from "@/lib/positions";
 import { slugify } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { canManageCategories } from "@/lib/admin-access";
@@ -150,12 +153,25 @@ export default function NewCategoryPage() {
         ? new Set(l2Children.map((c) => c.position))
         : new Set(l3Children.map((c) => c.position));
 
-  const positionOptions = Array.from({ length: 21 }, (_, i) => i + 1)
-    .filter((i) => !occupiedPositions.has(i))
-    .map((i) => ({
-      value: String(i),
-      label: String(i),
-    }));
+  // API-derived next position for the current scope (used as auto-selected default)
+  const apiLevel = level - 1; // convert UI level (1-3) to API level (0-2)
+  const scopeParentId =
+    apiLevel === 2 ? selectedL2 : apiLevel === 1 ? selectedL1 : undefined;
+  const { data: nextPositionData } = useCategoryNextPosition(
+    apiLevel,
+    scopeParentId || null,
+  );
+
+  const positionOptions = nextPositionData
+    ? buildPositionOptions({
+        occupiedPositions: nextPositionData.occupiedPositions,
+        nextPosition: nextPositionData.nextPosition,
+        startFrom: 1,
+      })
+    : // Fallback while API loads: derive from tree to show options immediately
+      Array.from({ length: 21 }, (_, i) => i + 1)
+        .filter((i) => !occupiedPositions.has(i))
+        .map((i) => ({ value: String(i), label: String(i) }));
 
   // ── Toggle handlers ─────────────────────────────────────────────────────
   function handlePrincipalToggle(v: boolean) {
@@ -190,13 +206,18 @@ export default function NewCategoryPage() {
     setSelectedL2(""); // reset L2 when L1 changes
   }
 
+  // Auto-select the next available position when scope or API data changes
   useEffect(() => {
     if (positionOptions.length === 0) return;
-    const stillValid = positionOptions.some((opt) => opt.value === position);
-    if (!stillValid) {
-      setPosition(positionOptions[0].value);
-    }
-  }, [positionOptions, position]);
+    const apiNext = nextPositionData?.nextPosition;
+    // Prefer the API-suggested next position if it's available in the options
+    const preferred =
+      apiNext !== undefined
+        ? positionOptions.find((o) => o.value === String(apiNext))
+        : undefined;
+    const target = preferred ?? positionOptions[0];
+    setPosition(target.value);
+  }, [nextPositionData, positionOptions.map((o) => o.value).join(",")]);
 
   // ── Mutation ─────────────────────────────────────────────────────────────
   const createCategory = useCreateCategory();
@@ -319,12 +340,12 @@ export default function NewCategoryPage() {
             placeholder="Nome da categoria"
           />
 
-          {/* ④ Exhibition index — blocked when occupied in current scope */}
-          <Select
+          {/* ④ Exhibition index — smart dropdown with gap filling */}
+          <SingleSelectDropdown
             label="Índice de exibição"
+            options={positionOptions}
             value={position}
             onChange={setPosition}
-            options={positionOptions}
             disabled={
               positionOptions.length === 0 ||
               (level === 2 && !selectedL1) ||

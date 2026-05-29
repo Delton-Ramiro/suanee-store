@@ -44,10 +44,9 @@ export function ProductsPanel({
             )}
             {product.basePrice != null && (
               <p className="text-[13px] font-bold text-accent mt-0.5">
-                {(
-                  product.hasDiscount && product.discountPrice != null
-                    ? product.discountPrice
-                    : product.basePrice
+                {(product.hasDiscount && product.discountPrice != null
+                  ? product.discountPrice
+                  : product.basePrice
                 ).toLocaleString("pt-MZ")}{" "}
                 MZN
               </p>
