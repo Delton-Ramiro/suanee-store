@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
 import { FavoritesDrawer } from "@/components/FavoritesDrawer";
+import { OrdersDrawer } from "@/components/OrdersDrawer";
 
 export default function ShopLayout({
   children,
@@ -18,6 +19,7 @@ export default function ShopLayout({
       <Footer />
       <CartDrawer />
       <FavoritesDrawer />
+      <OrdersDrawer />
     </>
   );
 }

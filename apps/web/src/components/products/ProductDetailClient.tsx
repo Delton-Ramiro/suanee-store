@@ -304,6 +304,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
     cartStore.add({
       key: cartKey,
       productId: product.id,
+      variantId: selectedVariant?.id ?? null,
       slug: product.slug,
       name: product.name,
       brandName: product.brand.name,

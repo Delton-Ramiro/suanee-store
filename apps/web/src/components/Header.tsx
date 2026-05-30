@@ -16,6 +16,7 @@ import { MegaMenu } from "@/components/MegaMenu";
 import { useCart, cartStore } from "@/lib/stores/cartStore";
 import { useFavorites, favoritesStore } from "@/lib/stores/favoritesStore";
 import { useAuth } from "@/lib/auth";
+import { ordersStore } from "@/lib/stores/ordersStore";
 
 /* ─── Icon sizes ──────────────────────────────────────────────── */
 const iconCls = "w-[22px] h-[22px] stroke-[1.5]";
@@ -186,7 +187,7 @@ export default function Header() {
 
               {user ? (
                 <>
-                  <IconBtn href="/conta" label="A minha conta">
+                  <IconBtnAction onClick={ordersStore.open} label="As minhas compras">
                     {user.avatarUrl ? (
                       <img
                         src={user.avatarUrl}
@@ -198,7 +199,7 @@ export default function Header() {
                         {user.name.charAt(0)}
                       </span>
                     )}
-                  </IconBtn>
+                  </IconBtnAction>
                   <IconBtnAction onClick={signOut} label="Terminar sessão">
                     <LogOut className={iconCls} />
                   </IconBtnAction>
@@ -321,13 +322,17 @@ export default function Header() {
               <div className="flex flex-col gap-3">
                 {user ? (
                   <>
-                    <Link
-                      href="/conta"
-                      onClick={() => setMobileOpen(false)}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        ordersStore.open();
+                      }}
                       className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
                     >
-                      <User className="w-4 h-4" />A minha conta
-                    </Link>
+                      <User className="w-4 h-4" />
+                      As minhas compras
+                    </button>
                     <button
                       type="button"
                       onClick={() => {

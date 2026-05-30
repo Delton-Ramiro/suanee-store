@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { authFetch } from "../api";
 
 export type FavoriteItem = {
   productId: string;
@@ -64,12 +65,28 @@ function getServerSnapshot(): FavoritesState {
 }
 
 export const favoritesStore = {
+  /** Read the current items array (used by sync utilities). */
+  getItems(): FavoriteItem[] {
+    return state.items;
+  },
+
+  /** Replace all items — called when loading from server. */
+  setItems(items: FavoriteItem[]) {
+    setState({ items });
+    persist();
+  },
+
   toggle(item: FavoriteItem) {
     const exists = state.items.some((i) => i.productId === item.productId);
     if (exists) {
       setState({ items: state.items.filter((i) => i.productId !== item.productId) });
+      authFetch(`/favorites/${item.productId}`, { method: "DELETE" }).catch(() => {});
     } else {
       setState({ items: [...state.items, item] });
+      authFetch("/favorites", {
+        method: "POST",
+        body: JSON.stringify({ productId: item.productId }),
+      }).catch(() => {});
     }
     persist();
   },
@@ -77,14 +94,19 @@ export const favoritesStore = {
   remove(productId: string) {
     setState({ items: state.items.filter((i) => i.productId !== productId) });
     persist();
+    authFetch(`/favorites/${productId}`, { method: "DELETE" }).catch(() => {});
   },
 
   isFavorited(productId: string) {
     return state.items.some((i) => i.productId === productId);
   },
 
-  open() { setState({ isOpen: true }); },
-  close() { setState({ isOpen: false }); },
+  open() {
+    setState({ isOpen: true });
+  },
+  close() {
+    setState({ isOpen: false });
+  },
 };
 
 export function useFavorites() {

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { apiFetch } from "@/lib/api";
+import { syncWithServer } from "@/lib/sync";
 
 export default function AuthComplete() {
   const called = useRef(false);
@@ -32,7 +33,9 @@ export default function AuthComplete() {
         localStorage.setItem("access_token", accessToken);
         localStorage.setItem("refresh_token", refreshToken);
 
-        // Full reload so AuthProvider picks up the new tokens from localStorage
+        // Merge anonymous cart/favorites into user account before navigating
+        await syncWithServer(accessToken).catch(() => {});
+
         window.location.replace("/");
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Erro ao verificar sessão no servidor.");

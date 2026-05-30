@@ -9,6 +9,9 @@ import {
 } from "react";
 import { createSupabaseBrowserClient } from "./supabase";
 import { apiFetch } from "./api";
+import { loadFromServer } from "./sync";
+import { cartStore } from "./stores/cartStore";
+import { favoritesStore } from "./stores/favoritesStore";
 
 export interface AuthUser {
   id: string;
@@ -45,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then((u) => {
         setUser(u);
         setAccessToken(token);
+        loadFromServer(token).catch(() => {}); // background sync
       })
       .catch(async () => {
         // Access token expired — try to rotate with the refresh token
@@ -66,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           setUser(u);
           setAccessToken(newAccess);
+          loadFromServer(newAccess).catch(() => {}); // background sync
         } catch {
           localStorage.removeItem("access_token");
           localStorage.removeItem("refresh_token");
@@ -97,6 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    cartStore.setItems([]);
+    favoritesStore.setItems([]);
     setUser(null);
     setAccessToken(null);
   };

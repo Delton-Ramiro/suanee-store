@@ -30,6 +30,31 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/auth/complete/page.js"
+    ],
+    "/(shop)/categorias/[slug]/produtos/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/categorias/[slug]/produtos/page.js"
+    ],
+    "/(shop)/produtos/[slug]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/produtos/[slug]/page.js"
+    ],
+    "/(shop)/categorias/[slug]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/categorias/[slug]/page.js"
+    ],
+    "/(shop)/produtos/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/produtos/page.js"
+    ],
+    "/(shop)/conta/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/conta/page.js"
     ]
   }
 }

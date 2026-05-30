@@ -35,3 +35,16 @@ export async function apiFetch<T>(
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
+
+/** apiFetch with the stored access token automatically injected. */
+export function authFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token")
+      : null;
+  if (!token) return Promise.reject(new Error("Not authenticated"));
+  return apiFetch<T>(path, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) },
+  });
+}
