@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 
 // Shared CSS values for the left-edge mask that hides cards already scrolled past
 const LEFT_EDGE = "max(16px, calc((100vw - 1240px) / 2 + 16px))";
@@ -25,27 +25,35 @@ export function HorizontalScroll({
   progressClassName = "",
 }: HorizontalScrollProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // scrollPct: how far scrolled (0–1), viewportRatio: clientWidth/scrollWidth (0–1)
   const [scrollPct, setScrollPct] = useState(0);
+  const [viewportRatio, setViewportRatio] = useState(1);
 
-  const onScroll = useCallback(() => {
+  // Measure on mount and whenever content/size changes
+  const measure = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const max = el.scrollWidth - el.clientWidth;
     setScrollPct(max > 0 ? el.scrollLeft / max : 0);
+    setViewportRatio(
+      el.scrollWidth > 0 ? el.clientWidth / el.scrollWidth : 1,
+    );
   }, []);
 
-  // Indicator fills from current position to end of visible area
-  const indicatorPct = Math.min(
-    Math.max(
-      scrollPct * 100 +
-        (scrollRef.current
-          ? (scrollRef.current.clientWidth / scrollRef.current.scrollWidth) *
-            100
-          : 30),
-      10,
-    ),
-    100,
-  );
+  useEffect(() => {
+    measure();
+    // Re-measure when fonts/images load or window resizes
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
+
+  const onScroll = useCallback(() => {
+    measure();
+  }, [measure]);
+
+  // Indicator: starts at scrollPct * (1 - viewportRatio) and has width = viewportRatio
+  const indicatorLeft = scrollPct * (1 - viewportRatio) * 100;
+  const indicatorWidth = Math.max(viewportRatio * 100, 5); // min 5% so it's visible
 
   return (
     <>
@@ -74,12 +82,13 @@ export function HorizontalScroll({
 
       {/* Scroll progress bar */}
       <div
-        className={`mt-4 h-[5px] bg-gray-100 overflow-hidden rounded-full ${progressClassName}`}
+        className={`mt-4 h-[5px] bg-gray-100 overflow-hidden rounded-full relative ${progressClassName}`}
       >
         <div
-          className="h-full rounded-full transition-[width] duration-100"
+          className="absolute top-0 h-full rounded-full transition-[left,width] duration-100"
           style={{
-            width: `${indicatorPct}%`,
+            left: `${indicatorLeft}%`,
+            width: `${indicatorWidth}%`,
             background: "rgba(16, 87, 142, 0.31)",
           }}
         />

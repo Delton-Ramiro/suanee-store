@@ -534,11 +534,9 @@ export default async function adminCategoriesRoutes(fastify: FastifyInstance) {
         .parse(req.query);
 
       if (level > 0 && !parentId) {
-        return reply
-          .status(400)
-          .send({
-            error: "parentId é obrigatório para categorias de nível 1 e 2",
-          });
+        return reply.status(400).send({
+          error: "parentId é obrigatório para categorias de nível 1 e 2",
+        });
       }
 
       const all = await prisma.category.findMany({

@@ -25,8 +25,16 @@ export interface ProductCardItem {
   hasDiscount: boolean;
   discountPrice: number | null;
   brand: { id: string; name: string; slug: string };
-  media: Array<{ id?: string; url: string; mediaType: string; isPrimary?: boolean }>;
-  variants: Array<{ colorId: string | null; color: { id: string; name: string; hexCode: string } | null }>;
+  media: Array<{
+    id?: string;
+    url: string;
+    mediaType: string;
+    isPrimary?: boolean;
+  }>;
+  variants: Array<{
+    colorId: string | null;
+    color: { id: string; name: string; hexCode: string } | null;
+  }>;
 }
 
 export function ProductCard({ product }: { product: ProductCardItem }) {
@@ -41,10 +49,14 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
 
   const colorSwatches = product.variants
     .filter((v) => v.colorId && v.color)
-    .slice(0, MAX_SWATCHES) as Array<{ colorId: string; color: { id: string; name: string; hexCode: string } }>;
+    .slice(0, MAX_SWATCHES) as Array<{
+    colorId: string;
+    color: { id: string; name: string; hexCode: string };
+  }>;
   const extraColors =
     product.variants.filter((v) => v.colorId && v.color).length > MAX_SWATCHES
-      ? product.variants.filter((v) => v.colorId && v.color).length - MAX_SWATCHES
+      ? product.variants.filter((v) => v.colorId && v.color).length -
+        MAX_SWATCHES
       : 0;
 
   const basePrice = Number(product.basePrice);
@@ -125,7 +137,8 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
           type="button"
           onClick={(e) => {
             e.preventDefault();
-            const firstColor = product.variants.find((v) => v.color)?.color ?? null;
+            const firstColor =
+              product.variants.find((v) => v.color)?.color ?? null;
             favoritesStore.toggle({
               productId: product.id,
               slug: product.slug,
@@ -142,12 +155,18 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
             });
           }}
           className="absolute top-[4px] right-[4px] w-[36px] h-[36px] flex items-center justify-center transition-colors"
-          aria-label={isFavorited ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+          aria-label={
+            isFavorited ? "Remover dos favoritos" : "Adicionar aos favoritos"
+          }
         >
           <Heart
             size={20}
             strokeWidth={1.5}
-            className={isFavorited ? "fill-danger text-danger" : "text-accent hover:text-primary"}
+            className={
+              isFavorited
+                ? "fill-danger text-danger"
+                : "text-accent hover:text-primary"
+            }
           />
         </button>
 

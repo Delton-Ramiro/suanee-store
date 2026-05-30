@@ -19,10 +19,13 @@ export type ActiveFilters = {
   brand: string[];
   color: string[];
   size: string[];
+  subcats: string[];
   minPrice?: number;
   maxPrice?: number;
   attrFilters: Record<string, string[]>;
 };
+
+export type SubCategory = { id: string; name: string; slug: string };
 
 type Props = {
   available: CategoryFilters;
@@ -30,6 +33,7 @@ type Props = {
   onChange: (next: ActiveFilters) => void;
   isOpen: boolean;
   onClose: () => void;
+  subCategories?: SubCategory[];
 };
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -152,6 +156,7 @@ export function FilterSidebar({
   onChange,
   isOpen,
   onClose,
+  subCategories,
 }: Props) {
   // Local search queries — all filtering done client-side from the full dataset
   const [brandQuery, setBrandQuery] = useState("");
@@ -175,7 +180,7 @@ export function FilterSidebar({
   }
 
   function resetAll() {
-    onChange({ brand: [], color: [], size: [], attrFilters: {} });
+    onChange({ brand: [], color: [], size: [], subcats: [], attrFilters: {} });
     setBrandQuery("");
     setSizeQuery("");
     setColorQuery("");
@@ -188,23 +193,30 @@ export function FilterSidebar({
     active.brand.length > 0 ||
     active.color.length > 0 ||
     active.size.length > 0 ||
+    active.subcats.length > 0 ||
     active.minPrice !== undefined ||
     active.maxPrice !== undefined ||
     Object.values(active.attrFilters).some((v) => v.length > 0);
 
   // Locally filtered lists
   const filteredBrands = brandQuery
-    ? available.brands.filter((b: BrandOption) => matchesQuery(b.name, brandQuery))
+    ? available.brands.filter((b: BrandOption) =>
+        matchesQuery(b.name, brandQuery),
+      )
     : available.brands;
 
   const filteredSizes = sizeQuery
-    ? available.sizes.filter((s: SizeOption) =>
-        matchesQuery(s.name, sizeQuery) || matchesQuery(s.label ?? "", sizeQuery)
+    ? available.sizes.filter(
+        (s: SizeOption) =>
+          matchesQuery(s.name, sizeQuery) ||
+          matchesQuery(s.label ?? "", sizeQuery),
       )
     : available.sizes;
 
   const filteredColors = colorQuery
-    ? available.colors.filter((c: ColorOption) => matchesQuery(c.name, colorQuery))
+    ? available.colors.filter((c: ColorOption) =>
+        matchesQuery(c.name, colorQuery),
+      )
     : available.colors;
 
   const sidebarContent = (
@@ -235,7 +247,27 @@ export function FilterSidebar({
 
       {/* Scrollable filter groups */}
       <div className="flex-1 overflow-y-auto overscroll-contain -mr-1 pr-1">
-
+        {/* Sub-categories (only shown when coming from a parent category with children) */}
+        {subCategories && subCategories.length > 0 && (
+          <FilterGroup title="Subcategoria">
+            <div className="flex flex-col gap-0.5">
+              {subCategories.map((sc) => (
+                <CheckRow
+                  key={sc.id}
+                  id={`subcat-${sc.slug}`}
+                  label={sc.name}
+                  checked={active.subcats.includes(sc.slug)}
+                  onChange={() =>
+                    onChange({
+                      ...active,
+                      subcats: toggleInArray(active.subcats, sc.slug),
+                    })
+                  }
+                />
+              ))}
+            </div>
+          </FilterGroup>
+        )}
         {/* Marca */}
         {available.brands.length > 0 && (
           <FilterGroup title="Marca">
@@ -253,7 +285,10 @@ export function FilterSidebar({
                     label={b.name}
                     checked={active.brand.includes(b.id)}
                     onChange={() =>
-                      onChange({ ...active, brand: toggleInArray(active.brand, b.id) })
+                      onChange({
+                        ...active,
+                        brand: toggleInArray(active.brand, b.id),
+                      })
                     }
                   />
                 ))
@@ -281,7 +316,10 @@ export function FilterSidebar({
                       key={s.id}
                       type="button"
                       onClick={() =>
-                        onChange({ ...active, size: toggleInArray(active.size, s.id) })
+                        onChange({
+                          ...active,
+                          size: toggleInArray(active.size, s.id),
+                        })
                       }
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                         selected
@@ -326,7 +364,10 @@ export function FilterSidebar({
                     type="checkbox"
                     checked={active.color.includes(c.id)}
                     onChange={() =>
-                      onChange({ ...active, color: toggleInArray(active.color, c.id) })
+                      onChange({
+                        ...active,
+                        color: toggleInArray(active.color, c.id),
+                      })
                     }
                     className="sr-only"
                   />
@@ -343,13 +384,17 @@ export function FilterSidebar({
         <FilterGroup title="Preço" defaultOpen={false}>
           <div className="flex items-center gap-2">
             <div className="flex-1">
-              <label className="text-[10px] text-text-muted mb-1 block">Mín.</label>
+              <label className="text-[10px] text-text-muted mb-1 block">
+                Mín.
+              </label>
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={minInput}
-                onChange={(e) => setMinInput(e.target.value.replace(/[^0-9]/g, ""))}
+                onChange={(e) =>
+                  setMinInput(e.target.value.replace(/[^0-9]/g, ""))
+                }
                 onBlur={applyPriceRange}
                 onKeyDown={(e) => e.key === "Enter" && applyPriceRange()}
                 placeholder="0"
@@ -358,13 +403,17 @@ export function FilterSidebar({
             </div>
             <span className="text-text-muted mt-4">–</span>
             <div className="flex-1">
-              <label className="text-[10px] text-text-muted mb-1 block">Máx.</label>
+              <label className="text-[10px] text-text-muted mb-1 block">
+                Máx.
+              </label>
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={maxInput}
-                onChange={(e) => setMaxInput(e.target.value.replace(/[^0-9]/g, ""))}
+                onChange={(e) =>
+                  setMaxInput(e.target.value.replace(/[^0-9]/g, ""))
+                }
                 onBlur={applyPriceRange}
                 onKeyDown={(e) => e.key === "Enter" && applyPriceRange()}
                 placeholder="∞"
@@ -378,7 +427,9 @@ export function FilterSidebar({
         {available.filters.map((attr: AttributeFilter) => {
           const query = attrQueries[attr.id] ?? "";
           const filteredOpts = query
-            ? attr.options.filter((o: FilterOption) => matchesQuery(o.label, query))
+            ? attr.options.filter((o: FilterOption) =>
+                matchesQuery(o.label, query),
+              )
             : attr.options;
 
           return (
@@ -397,7 +448,9 @@ export function FilterSidebar({
                       key={opt.id}
                       id={`attr-${attr.id}-${opt.id}`}
                       label={opt.label}
-                      checked={(active.attrFilters[attr.id] ?? []).includes(opt.id)}
+                      checked={(active.attrFilters[attr.id] ?? []).includes(
+                        opt.id,
+                      )}
                       onChange={() => {
                         const current = active.attrFilters[attr.id] ?? [];
                         onChange({
@@ -440,4 +493,3 @@ export function FilterSidebar({
     </>
   );
 }
-

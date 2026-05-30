@@ -286,23 +286,20 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
   /* ── Cart / favorites helpers ────────────────────────────────────────── */
   const isFavorited = favoriteItems.some((i) => i.productId === product.id);
 
-  const cartKey = cartItemKey(
-    product.id,
-    selectedColorId,
-    selectedSizeId,
-  );
+  const cartKey = cartItemKey(product.id, selectedColorId, selectedSizeId);
   const isInCart = cartItems.some((i) => i.key === cartKey);
 
   const selectedColor = colors.find((c) => c.id === selectedColorId) ?? null;
-  const selectedSize = availableSizes.find((s) => s.id === selectedSizeId) ?? null;
+  const selectedSize =
+    availableSizes.find((s) => s.id === selectedSizeId) ?? null;
 
   function handleAddToCart() {
     if (!selectedSizeId) return;
     const displayPrice =
       hasDiscount && discountPrice ? Number(discountPrice) : Number(basePrice);
-    const thumb = displayMedia.find((m) => m.mediaType === "image")?.url ?? null;
-    const categoryName =
-      product.categories[0]?.category?.name ?? null;
+    const thumb =
+      displayMedia.find((m) => m.mediaType === "image")?.url ?? null;
+    const categoryName = product.categories[0]?.category?.name ?? null;
 
     cartStore.add({
       key: cartKey,
@@ -323,7 +320,8 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
   }
 
   function handleToggleFavorite() {
-    const thumb = displayMedia.find((m) => m.mediaType === "image")?.url ?? null;
+    const thumb =
+      displayMedia.find((m) => m.mediaType === "image")?.url ?? null;
     const categoryName = product.categories[0]?.category?.name ?? null;
 
     favoritesStore.toggle({
@@ -413,12 +411,20 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
             <button
               type="button"
               className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-colors"
-              aria-label={isFavorited ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+              aria-label={
+                isFavorited
+                  ? "Remover dos favoritos"
+                  : "Adicionar aos favoritos"
+              }
               onClick={handleToggleFavorite}
             >
               <Heart
                 size={17}
-                className={isFavorited ? "fill-danger text-danger" : "text-text-muted hover:text-danger"}
+                className={
+                  isFavorited
+                    ? "fill-danger text-danger"
+                    : "text-text-muted hover:text-danger"
+                }
               />
             </button>
           </div>

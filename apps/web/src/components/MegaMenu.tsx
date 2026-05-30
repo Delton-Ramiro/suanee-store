@@ -17,7 +17,7 @@ function CategoryColumn({ l1 }: { l1: CategoryL1 }) {
   return (
     <div className="min-w-[140px] max-w-[190px] flex-1">
       <Link
-        href={`/categorias/${l1.slug}`}
+        href={`/categorias/${l1.slug}/produtos`}
         className="block font-bold text-[13px] text-brand hover:text-primary mb-3 leading-snug"
       >
         {l1.name}
@@ -29,7 +29,7 @@ function CategoryColumn({ l1 }: { l1: CategoryL1 }) {
             /* L2 has L3 children — sub-header + links */
             <div key={l2.id} className="mt-2 first:mt-0">
               <Link
-                href={`/produtos?categoria=${l2.slug}`}
+                href={`/categorias/${l2.slug}`}
                 className="block font-semibold text-[12px] text-brand hover:text-primary mb-0.5"
               >
                 {l2.name}
@@ -47,7 +47,7 @@ function CategoryColumn({ l1 }: { l1: CategoryL1 }) {
           ) : (
             <Link
               key={l2.id}
-              href={`/produtos?categoria=${l2.slug}`}
+              href={`/categorias/${l2.slug}/produtos`}
               className="block text-[13px] text-text-muted hover:text-primary py-[2px] leading-snug"
             >
               {l2.name}
@@ -61,12 +61,17 @@ function CategoryColumn({ l1 }: { l1: CategoryL1 }) {
 
 /* ── MegaMenu ─────────────────────────────────────────────────────────────── */
 
-export function MegaMenu({ category, onMouseEnter, onMouseLeave }: MegaMenuProps) {
+export function MegaMenu({
+  category,
+  onMouseEnter,
+  onMouseLeave,
+}: MegaMenuProps) {
   const l1List = category.children ?? [];
   if (!l1List.length) return null;
 
   return (
-    <div className="w-full bg-white border-t-2 border-accent shadow-[0_4px_20px_rgba(0,0,0,0.08)] max-h-[60vh] overflow-y-auto no-scrollbar mega-menu-enter"
+    <div
+      className="w-full bg-white border-t-2 border-accent shadow-[0_4px_20px_rgba(0,0,0,0.08)] max-h-[60vh] overflow-y-auto no-scrollbar mega-menu-enter"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >

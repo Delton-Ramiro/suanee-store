@@ -1,8 +1,4 @@
-export default function MarcaPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default function MarcaPage() {
   return (
     <div className="py-12">
       <p className="text-text-muted text-sm">Marca — em construção</p>

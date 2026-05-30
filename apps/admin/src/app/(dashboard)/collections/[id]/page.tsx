@@ -324,17 +324,18 @@ export default function CollectionDetailPage({
   const removeProduct = useRemoveProductFromCollection();
   const { data: categories = [] } = useCategories({ level: 0 });
   const { data: nextPositionData } = useCollectionNextPosition(
-    isEditing ? (editIsCategorized ? (editCategoryId || null) : null) : undefined,
+    isEditing ? (editIsCategorized ? editCategoryId || null : null) : undefined,
   );
 
-  const positionOptions = isEditing && nextPositionData
-    ? buildPositionOptions({
-        occupiedPositions: nextPositionData.occupiedPositions,
-        nextPosition: nextPositionData.nextPosition,
-        currentPosition: collection?.position ?? undefined,
-        startFrom: 1,
-      })
-    : [];
+  const positionOptions =
+    isEditing && nextPositionData
+      ? buildPositionOptions({
+          occupiedPositions: nextPositionData.occupiedPositions,
+          nextPosition: nextPositionData.nextPosition,
+          currentPosition: collection?.position ?? undefined,
+          startFrom: 1,
+        })
+      : [];
 
   if (!allowCollectionManagement) {
     return <AccessDeniedState message="A sua role não pode gerir coleções." />;
@@ -388,7 +389,8 @@ export default function CollectionDetailPage({
           coverImageUrl: editCoverImageUrl || null,
           isActive: editIsActive,
           position: editPosition,
-          categoryId: editIsCategorized && editCategoryId ? editCategoryId : null,
+          categoryId:
+            editIsCategorized && editCategoryId ? editCategoryId : null,
         },
       });
       setIsEditing(false);
@@ -635,17 +637,25 @@ export default function CollectionDetailPage({
             <Toggle
               label="Associar a categoria"
               value={isEditing ? editIsCategorized : !!collection.categoryId}
-              onChange={isEditing ? (v) => {
-                setEditIsCategorized(v);
-                if (!v) setEditCategoryId("");
-              } : undefined}
+              onChange={
+                isEditing
+                  ? (v) => {
+                      setEditIsCategorized(v);
+                      if (!v) setEditCategoryId("");
+                    }
+                  : undefined
+              }
               disabled={!isEditing}
             />
             {(isEditing ? editIsCategorized : !!collection.categoryId) && (
               <div className="relative">
                 <select
-                  value={isEditing ? editCategoryId : (collection.categoryId ?? "")}
-                  onChange={(e) => isEditing && setEditCategoryId(e.target.value)}
+                  value={
+                    isEditing ? editCategoryId : (collection.categoryId ?? "")
+                  }
+                  onChange={(e) =>
+                    isEditing && setEditCategoryId(e.target.value)
+                  }
                   disabled={!isEditing}
                   className="w-full appearance-none px-3 py-2.5 pr-10 rounded-lg border border-border bg-card text-text-dark text-sm font-figtree focus:outline-none focus:border-accent transition-colors disabled:bg-surface-hover disabled:cursor-default"
                 >
@@ -675,7 +685,9 @@ export default function CollectionDetailPage({
                     },
                   ]
             }
-            value={String(isEditing ? editPosition : (collection.position ?? 0))}
+            value={String(
+              isEditing ? editPosition : (collection.position ?? 0),
+            )}
             onChange={(v) => isEditing && setEditPosition(Number(v))}
             disabled={!isEditing}
           />

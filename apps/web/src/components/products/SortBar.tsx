@@ -50,7 +50,8 @@ export function SortBar({
     return () => document.removeEventListener("mousedown", onOutside);
   }, []);
 
-  const currentLabel = SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "Ordenar";
+  const currentLabel =
+    SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "Ordenar";
 
   // Button is blue when open OR when filters are active (closed but applied)
   const filterBtnActive = filtersOpen || hasActiveFilters;
@@ -83,7 +84,9 @@ export function SortBar({
 
       {/* Custom sort dropdown */}
       <div className="flex items-center gap-2">
-        <span className="text-sm text-text-muted hidden sm:block">Ordenar por</span>
+        <span className="text-sm text-text-muted hidden sm:block">
+          Ordenar por
+        </span>
 
         <div ref={sortRef} className="relative">
           <button
@@ -115,7 +118,9 @@ export function SortBar({
                   }`}
                 >
                   {o.label}
-                  {o.value === sort && <Check size={13} className="text-accent flex-none" />}
+                  {o.value === sort && (
+                    <Check size={13} className="text-accent flex-none" />
+                  )}
                 </button>
               ))}
             </div>

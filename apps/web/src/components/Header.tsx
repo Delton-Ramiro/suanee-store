@@ -135,7 +135,7 @@ export default function Header() {
                 href={`/categorias/${cat.slug}`}
                 onMouseEnter={() => openMenu(cat.id)}
                 onMouseLeave={scheduleClose}
-              className="text-sm font-medium whitespace-nowrap transition-colors duration-150 px-3 py-1.5 rounded-md text-brand hover:text-primary"
+                className="text-sm font-medium whitespace-nowrap transition-colors duration-150 px-3 py-1.5 rounded-md text-brand hover:text-primary"
               >
                 {cat.name}
               </Link>
@@ -196,7 +196,11 @@ export default function Header() {
             <IconBtn href="/pesquisa" label="Pesquisar">
               <Search className="w-[20px] h-[20px] stroke-[1.5]" />
             </IconBtn>
-            <IconBtnAction onClick={cartStore.open} label="Carrinho" badge={cartCount}>
+            <IconBtnAction
+              onClick={cartStore.open}
+              label="Carrinho"
+              badge={cartCount}
+            >
               <ShoppingBag className="w-[20px] h-[20px] stroke-[1.5]" />
             </IconBtnAction>
             <button
@@ -293,7 +297,10 @@ export default function Header() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => { setMobileOpen(false); favoritesStore.open(); }}
+                  onClick={() => {
+                    setMobileOpen(false);
+                    favoritesStore.open();
+                  }}
                   className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
                 >
                   <Heart className="w-4 h-4" />

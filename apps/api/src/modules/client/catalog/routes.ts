@@ -17,6 +17,8 @@ const ProductListQuery = z.object({
   color: z.string().optional(),
   /** Comma-separated size IDs */
   size: z.string().optional(),
+  /** Comma-separated child-category slugs to restrict search to specific sub-categories */
+  subcats: z.string().optional(),
   // attr-{attrDefId}=optId1,optId2 params are parsed separately from raw query
 });
 
@@ -33,7 +35,8 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           orderBy: {
             type: "string",
             enum: ["position"],
-            description: "Order root categories by this field (default: position)",
+            description:
+              "Order root categories by this field (default: position)",
           },
         },
       },
@@ -123,7 +126,8 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         properties: {
           colorSearch: {
             type: "string",
-            description: "Search term to filter colors by name (top 20 returned by default)",
+            description:
+              "Search term to filter colors by name (top 20 returned by default)",
           },
         },
       },
@@ -267,12 +271,32 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
 
       // Gather all descendant category IDs
       const descendantIds = await getCategoryDescendantIds(category.id);
-      const categoryIds = [category.id, ...descendantIds];
+      let categoryIds = [category.id, ...descendantIds];
+
+      // If specific sub-categories were requested, restrict to those slugs
+      const subcatSlugs = q.subcats?.split(",").filter(Boolean) ?? [];
+      if (subcatSlugs.length > 0) {
+        const subcats = await prisma.category.findMany({
+          where: { slug: { in: subcatSlugs }, id: { in: descendantIds } },
+          select: { id: true },
+        });
+        if (subcats.length > 0) {
+          const subDescendantGroups = await Promise.all(
+            subcats.map((s) => getCategoryDescendantIds(s.id)),
+          );
+          categoryIds = [
+            ...subcats.map((s) => s.id),
+            ...subDescendantGroups.flat(),
+          ];
+        }
+      }
 
       // Parse attribute filters: any query param prefixed with "attr-"
       // attr-{attrDefId}=optId1,optId2  →  [{attrDefId, optionIds[]}]
       const attrFilters: { attrDefId: string; optionIds: string[] }[] = [];
-      for (const [key, value] of Object.entries(req.query as Record<string, unknown>)) {
+      for (const [key, value] of Object.entries(
+        req.query as Record<string, unknown>,
+      )) {
         if (key.startsWith("attr-") && typeof value === "string") {
           const attrDefId = key.slice(5); // strip "attr-" prefix
           const optionIds = value.split(",").filter(Boolean);
@@ -387,7 +411,13 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ["Catalog"],
       description:
-        "Returns all active brands with their associated categories. Response is cached for 5 minutes.",
+        "Returns brands. Pass ?categorySlug= to restrict to brands associated with that category tree.",
+      querystring: {
+        type: "object",
+        properties: {
+          categorySlug: { type: "string" },
+        },
+      },
       response: {
         200: {
           description: "Brands list",
@@ -396,8 +426,23 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    handler: async (_req, reply) => {
+    handler: async (req, reply) => {
+      const { categorySlug } = z
+        .object({ categorySlug: z.string().optional() })
+        .parse(req.query);
+
+      let categoryFilter: { brandCategories: { some: { categoryId: { in: string[] } } } } | undefined;
+      if (categorySlug) {
+        const cat = await prisma.category.findFirst({ where: { slug: categorySlug } });
+        if (cat) {
+          const descendantIds = await getCategoryDescendantIds(cat.id);
+          const allIds = [cat.id, ...descendantIds];
+          categoryFilter = { brandCategories: { some: { categoryId: { in: allIds } } } };
+        }
+      }
+
       const brands = await prisma.brand.findMany({
+        where: categoryFilter,
         orderBy: { name: "asc" },
         include: {
           brandCategories: {
@@ -534,12 +579,19 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
                     where: { colorId: null, isDeleted: false } as never,
                     take: 3,
                     orderBy: { position: "asc" },
-                    select: { id: true, url: true, mediaType: true, isPrimary: true },
+                    select: {
+                      id: true,
+                      url: true,
+                      mediaType: true,
+                      isPrimary: true,
+                    },
                   },
                   variants: {
                     select: {
                       colorId: true,
-                      color: { select: { id: true, name: true, hexCode: true } },
+                      color: {
+                        select: { id: true, name: true, hexCode: true },
+                      },
                     },
                     orderBy: { position: "asc" },
                   },
@@ -554,9 +606,14 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: "Product not found" });
 
       // Flatten relatedProducts join table rows, deduplicating variant colors
-      const { relatedProducts: relatedRows, ...productRest } = product as typeof product & {
-        relatedProducts: Array<{ target: { variants?: Array<{ colorId: string | null; color: unknown }> } & Record<string, unknown> }>;
-      };
+      const { relatedProducts: relatedRows, ...productRest } =
+        product as typeof product & {
+          relatedProducts: Array<{
+            target: {
+              variants?: Array<{ colorId: string | null; color: unknown }>;
+            } & Record<string, unknown>;
+          }>;
+        };
       return reply.send({
         ...productRest,
         relatedProducts: (relatedRows ?? []).map((r) => {
