@@ -322,8 +322,6 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
   function handleToggleFavorite() {
     const thumb =
       displayMedia.find((m) => m.mediaType === "image")?.url ?? null;
-    const categoryName = product.categories[0]?.category?.name ?? null;
-
     favoritesStore.toggle({
       productId: product.id,
       slug: product.slug,
@@ -331,12 +329,9 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
       brandName: product.brand.name,
       imageUrl: thumb,
       price: Number(basePrice),
-      isIndicativePrice,
       hasDiscount,
       discountPrice: discountPrice ? Number(discountPrice) : null,
-      categoryName,
-      colorName: selectedColor?.name ?? null,
-      sizeName: selectedSize?.label ?? selectedSize?.name ?? null,
+      isIndicativePrice,
     });
   }
 

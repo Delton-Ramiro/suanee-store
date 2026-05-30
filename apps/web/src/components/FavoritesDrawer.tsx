@@ -44,7 +44,7 @@ export function FavoritesDrawer() {
           </button>
         </div>
 
-        {/* Items */}
+      {/* Items */}
         <div className="flex-1 overflow-y-auto px-[25px] py-[30px] flex flex-col gap-[5px]">
           {items.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
@@ -68,9 +68,6 @@ function FavoriteItemRow({
 }: {
   item: import("@/lib/stores/favoritesStore").FavoriteItem;
 }) {
-  const price =
-    item.hasDiscount && item.discountPrice ? item.discountPrice : item.price;
-
   return (
     <div className="flex gap-[10px] items-stretch">
       {/* Image */}
@@ -90,8 +87,8 @@ function FavoriteItemRow({
 
       {/* Content */}
       <div className="flex-1 min-w-0 flex flex-col justify-between py-[9px]">
-        {/* Top: name + price */}
-        <div className="flex items-start justify-between gap-2">
+        {/* Name + brand */}
+        <div>
           <a
             href={`/produtos/${item.slug}`}
             onClick={favoritesStore.close}
@@ -101,34 +98,29 @@ function FavoriteItemRow({
               {item.name}
             </p>
           </a>
-          <p className="text-[16px] font-bold text-muted-bg whitespace-nowrap shrink-0">
-            {formatPrice(price)}
-          </p>
+          <p className="text-sm text-text-muted mt-1">{item.brandName}</p>
         </div>
 
-        {/* Meta */}
-        <div className="flex flex-col gap-2 my-2">
-          {item.categoryName && (
-            <p className="text-sm text-black leading-none">
-              <span className="font-bold">Categoria</span>
-              <span className="font-light">: {item.categoryName}</span>
-            </p>
-          )}
-          {item.colorName && (
-            <p className="text-sm text-black leading-none">
-              <span className="font-bold">Cor</span>
-              <span className="font-light">: {item.colorName}</span>
-            </p>
-          )}
-          {item.sizeName && (
-            <p className="text-sm text-black leading-none">
-              <span className="font-bold">Tamanho</span>
-              <span className="font-light">: {item.sizeName}</span>
+        {/* Price */}
+        <div>
+          {item.hasDiscount && item.discountPrice ? (
+            <div className="flex items-center gap-2">
+              <p className="text-[15px] font-bold text-black">
+                {formatPrice(item.discountPrice)}
+              </p>
+              <p className="text-sm text-text-muted line-through">
+                {formatPrice(item.price)}
+              </p>
+            </div>
+          ) : (
+            <p className="text-[15px] font-bold text-black">
+              {item.isIndicativePrice ? "~ " : ""}
+              {formatPrice(item.price)}
             </p>
           )}
         </div>
 
-        {/* Bottom: eliminar */}
+        {/* Remove */}
         <div className="flex items-center justify-end">
           <button
             type="button"

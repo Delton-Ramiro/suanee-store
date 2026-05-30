@@ -1,7 +1,7 @@
 {
-  "/(shop)/categorias/[slug]/produtos/page": "app/(shop)/categorias/[slug]/produtos/page.js",
   "/(shop)/categorias/[slug]/page": "app/(shop)/categorias/[slug]/page.js",
+  "/(shop)/categorias/[slug]/produtos/page": "app/(shop)/categorias/[slug]/produtos/page.js",
+  "/(shop)/marcas/[slug]/page": "app/(shop)/marcas/[slug]/page.js",
   "/(shop)/produtos/[slug]/page": "app/(shop)/produtos/[slug]/page.js",
-  "/(shop)/page": "app/(shop)/page.js",
-  "/(shop)/marcas/[slug]/page": "app/(shop)/marcas/[slug]/page.js"
+  "/(shop)/conta/page": "app/(shop)/conta/page.js"
 }

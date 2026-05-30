@@ -137,8 +137,6 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
           type="button"
           onClick={(e) => {
             e.preventDefault();
-            const firstColor =
-              product.variants.find((v) => v.color)?.color ?? null;
             favoritesStore.toggle({
               productId: product.id,
               slug: product.slug,
@@ -146,12 +144,9 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
               brandName: product.brand.name,
               imageUrl: media[0]?.url ?? null,
               price: basePrice,
-              isIndicativePrice: product.isIndicativePrice,
               hasDiscount: product.hasDiscount,
               discountPrice,
-              categoryName: null,
-              colorName: firstColor?.name ?? null,
-              sizeName: null,
+              isIndicativePrice: product.isIndicativePrice,
             });
           }}
           className="absolute top-[4px] right-[4px] w-[36px] h-[36px] flex items-center justify-center transition-colors"

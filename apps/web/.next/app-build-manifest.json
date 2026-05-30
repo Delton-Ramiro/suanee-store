@@ -40,6 +40,16 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(shop)/produtos/[slug]/page.js"
+    ],
+    "/(shop)/conta/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/conta/page.js"
+    ],
+    "/(shop)/pesquisa/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/pesquisa/page.js"
     ]
   }
 }

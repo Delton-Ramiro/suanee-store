@@ -7,12 +7,9 @@ export type FavoriteItem = {
   brandName: string;
   imageUrl: string | null;
   price: number;
-  isIndicativePrice: boolean;
   hasDiscount: boolean;
   discountPrice: number | null;
-  categoryName: string | null;
-  colorName: string | null;
-  sizeName: string | null;
+  isIndicativePrice: boolean;
 };
 
 type FavoritesState = {
@@ -60,20 +57,17 @@ function getSnapshot(): FavoritesState {
   return state;
 }
 
+const SERVER_SNAPSHOT: FavoritesState = { items: [], isOpen: false };
+
 function getServerSnapshot(): FavoritesState {
   return SERVER_SNAPSHOT;
 }
 
-const SERVER_SNAPSHOT: FavoritesState = { items: [], isOpen: false };
-
 export const favoritesStore = {
-  /** Toggle a product in favorites */
   toggle(item: FavoriteItem) {
     const exists = state.items.some((i) => i.productId === item.productId);
     if (exists) {
-      setState({
-        items: state.items.filter((i) => i.productId !== item.productId),
-      });
+      setState({ items: state.items.filter((i) => i.productId !== item.productId) });
     } else {
       setState({ items: [...state.items, item] });
     }
@@ -89,13 +83,8 @@ export const favoritesStore = {
     return state.items.some((i) => i.productId === productId);
   },
 
-  open() {
-    setState({ isOpen: true });
-  },
-
-  close() {
-    setState({ isOpen: false });
-  },
+  open() { setState({ isOpen: true }); },
+  close() { setState({ isOpen: false }); },
 };
 
 export function useFavorites() {
