@@ -62,9 +62,9 @@ export default async function clientCartRoutes(fastify: FastifyInstance) {
                   stockStatus: true,
                   brand: { select: { id: true, name: true } },
                   media: {
-                    take: 1,
+                    where: { isDeleted: false, mediaType: "image" },
                     orderBy: { position: "asc" as const },
-                    select: { id: true, url: true, mediaType: true },
+                    select: { url: true, colorId: true },
                   },
                 },
               },

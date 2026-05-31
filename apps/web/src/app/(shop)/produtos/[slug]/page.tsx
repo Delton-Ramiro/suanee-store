@@ -86,8 +86,16 @@ export type ProductDetail = {
     hasDiscount: boolean;
     discountPrice: number | null;
     brand: { id: string; name: string; slug: string };
-    media: Array<{ id: string; url: string; mediaType: string; isPrimary: boolean }>;
-    variants: Array<{ colorId: string | null; color: { id: string; name: string; hexCode: string } | null }>;
+    media: Array<{
+      id: string;
+      url: string;
+      mediaType: string;
+      isPrimary: boolean;
+    }>;
+    variants: Array<{
+      colorId: string | null;
+      color: { id: string; name: string; hexCode: string } | null;
+    }>;
   }>;
 };
 

@@ -25,11 +25,25 @@ export interface ProductCardItem {
   hasDiscount: boolean;
   discountPrice: number | null;
   brand: { id: string; name: string; slug: string };
-  media: Array<{ id?: string; url: string; mediaType: string; isPrimary?: boolean }>;
-  variants: Array<{ colorId: string | null; color: { id: string; name: string; hexCode: string } | null }>;
+  media: Array<{
+    id?: string;
+    url: string;
+    mediaType: string;
+    isPrimary?: boolean;
+  }>;
+  variants: Array<{
+    colorId: string | null;
+    color: { id: string; name: string; hexCode: string } | null;
+  }>;
 }
 
-export function ProductCard({ product }: { product: ProductCardItem }) {
+export function ProductCard({
+  product,
+  compact = false,
+}: {
+  product: ProductCardItem;
+  compact?: boolean;
+}) {
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -41,10 +55,14 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
 
   const colorSwatches = product.variants
     .filter((v) => v.colorId && v.color)
-    .slice(0, MAX_SWATCHES) as Array<{ colorId: string; color: { id: string; name: string; hexCode: string } }>;
+    .slice(0, MAX_SWATCHES) as Array<{
+    colorId: string;
+    color: { id: string; name: string; hexCode: string };
+  }>;
   const extraColors =
     product.variants.filter((v) => v.colorId && v.color).length > MAX_SWATCHES
-      ? product.variants.filter((v) => v.colorId && v.color).length - MAX_SWATCHES
+      ? product.variants.filter((v) => v.colorId && v.color).length -
+        MAX_SWATCHES
       : 0;
 
   const basePrice = Number(product.basePrice);
@@ -125,7 +143,6 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
           type="button"
           onClick={(e) => {
             e.preventDefault();
-            const firstColor = product.variants.find((v) => v.color)?.color ?? null;
             favoritesStore.toggle({
               productId: product.id,
               slug: product.slug,
@@ -133,21 +150,24 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
               brandName: product.brand.name,
               imageUrl: media[0]?.url ?? null,
               price: basePrice,
-              isIndicativePrice: product.isIndicativePrice,
               hasDiscount: product.hasDiscount,
               discountPrice,
-              categoryName: null,
-              colorName: firstColor?.name ?? null,
-              sizeName: null,
+              isIndicativePrice: product.isIndicativePrice,
             });
           }}
-          className="absolute top-[4px] right-[4px] w-[36px] h-[36px] flex items-center justify-center transition-colors"
-          aria-label={isFavorited ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+          className="absolute top-1 right-1 w-9 h-9 flex items-center justify-center transition-colors"
+          aria-label={
+            isFavorited ? "Remover dos favoritos" : "Adicionar aos favoritos"
+          }
         >
           <Heart
             size={20}
             strokeWidth={1.5}
-            className={isFavorited ? "fill-danger text-danger" : "text-accent hover:text-primary"}
+            className={
+              isFavorited
+                ? "fill-danger text-danger"
+                : "text-accent hover:text-primary"
+            }
           />
         </button>
 
@@ -167,59 +187,79 @@ export function ProductCard({ product }: { product: ProductCardItem }) {
       </div>
 
       {/* Info */}
-      <div className="flex flex-col gap-[15px]">
+      <div className="flex flex-col gap-3.75">
         <div className="flex flex-col gap-1">
-          <p className="text-[19px] font-bold text-text-dark tracking-[0.38px] leading-tight">
+          <p
+            className={`font-bold text-brand leading-tight tracking-[0.38px] ${
+              compact ? "text-h6" : "text-h5"
+            }`}
+          >
             {product.brand.name}
           </p>
-          <p className="text-[13px] font-normal text-text-dark tracking-[0.26px] leading-snug line-clamp-2">
+          <p className="text-[13px] font-normal text-brand tracking-[0.26px] leading-snug line-clamp-2">
             {product.name}
           </p>
         </div>
 
-        {/* Price + color swatches on same row */}
-        <div className="flex items-center justify-between gap-2 pr-[25px]">
-          {/* Price */}
-          <div className="flex items-baseline gap-2 min-w-0">
-            {product.hasDiscount && discountPrice !== null ? (
-              <>
-                <span className="text-[16px] font-bold text-text-dark whitespace-nowrap tracking-[0.32px]">
-                  {formatPrice(discountPrice)}
-                </span>
-                <span className="text-[11px] font-bold text-text-light line-through whitespace-nowrap">
-                  {formatPrice(basePrice)}
-                </span>
-              </>
-            ) : (
-              <span
-                className={`text-[16px] font-bold whitespace-nowrap tracking-[0.32px] ${
-                  product.isIndicativePrice ? "text-accent" : "text-text-dark"
-                }`}
-              >
-                {formatPrice(basePrice)}
-              </span>
+        {compact ? (
+          /* Compact (search) — price stacked, swatches below */
+          <div className="flex items-center justify-between gap-2 pr-6">
+            <span
+              className={`text-h6 font-bold leading-none ${
+                product.isIndicativePrice ? "text-accent" : "text-brand"
+              }`}
+            >
+              {formatPrice(basePrice)}
+            </span>
+
+            {colorSwatches.length > 0 && (
+              <div className="flex items-center gap-1.25 flex-none pt-1">
+                {colorSwatches.map(({ colorId, color }) => (
+                  <div
+                    key={colorId}
+                    title={color.name}
+                    className="size-2.5 flex-none"
+                    style={{ backgroundColor: color.hexCode }}
+                  />
+                ))}
+                {extraColors > 0 && (
+                  <span className="text-[10px] text-text-muted font-medium">
+                    +{extraColors}
+                  </span>
+                )}
+              </div>
             )}
           </div>
+        ) : (
+          /* Default — price + swatches inline */
+          <div className="flex items-center justify-between gap-2 pr-6.25">
+            <span
+              className={`text-[16px] font-bold whitespace-nowrap tracking-[0.32px] ${
+                product.isIndicativePrice ? "text-accent" : "text-brand"
+              }`}
+            >
+              {formatPrice(basePrice)}
+            </span>
 
-          {/* Color swatches — square, right side */}
-          {colorSwatches.length > 0 && (
-            <div className="flex items-center gap-[5px] flex-none">
-              {colorSwatches.map(({ colorId, color }) => (
-                <div
-                  key={colorId}
-                  title={color.name}
-                  className="size-[14px] flex-none"
-                  style={{ backgroundColor: color.hexCode }}
-                />
-              ))}
-              {extraColors > 0 && (
-                <span className="text-[10px] text-text-muted font-medium">
-                  +{extraColors}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+            {colorSwatches.length > 0 && (
+              <div className="flex items-center gap-1.25 flex-none">
+                {colorSwatches.map(({ colorId, color }) => (
+                  <div
+                    key={colorId}
+                    title={color.name}
+                    className="size-3.5 flex-none"
+                    style={{ backgroundColor: color.hexCode }}
+                  />
+                ))}
+                {extraColors > 0 && (
+                  <span className="text-[10px] text-text-muted font-medium">
+                    +{extraColors}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Link>
   );

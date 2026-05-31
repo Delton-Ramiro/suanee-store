@@ -4,7 +4,13 @@ import { use, useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Save, X } from "lucide-react";
 import { toast } from "sonner";
-import { useAdminProduct, useUpdateProduct, useRelatedProducts, useUpdateRelatedProducts, type RelatedProductItem } from "@/lib/hooks/useAdminProduct";
+import {
+  useAdminProduct,
+  useUpdateProduct,
+  useRelatedProducts,
+  useUpdateRelatedProducts,
+  type RelatedProductItem,
+} from "@/lib/hooks/useAdminProduct";
 import type { MediaDraft } from "@/components/products/ProductMediaZone";
 import ProductMediaZone from "@/components/products/ProductMediaZone";
 import { useBrands } from "@/lib/hooks/useBrands";
@@ -314,9 +320,13 @@ export default function ProductEditPage({
   >([]);
 
   /* ── Related products state ────────────────────────────────────────────── */
-  const [relatedProducts, setRelatedProducts] = useState<RelatedProductItem[]>([]);
+  const [relatedProducts, setRelatedProducts] = useState<RelatedProductItem[]>(
+    [],
+  );
   const [relatedSearch, setRelatedSearch] = useState("");
-  const [relatedResults, setRelatedResults] = useState<RelatedProductItem[]>([]);
+  const [relatedResults, setRelatedResults] = useState<RelatedProductItem[]>(
+    [],
+  );
   const [relatedSearching, setRelatedSearching] = useState(false);
   const relatedSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -325,19 +335,28 @@ export default function ProductEditPage({
   }, [existingRelated]);
 
   useEffect(() => {
-    if (!relatedSearch.trim()) { setRelatedResults([]); return; }
+    if (!relatedSearch.trim()) {
+      setRelatedResults([]);
+      return;
+    }
     if (relatedSearchTimer.current) clearTimeout(relatedSearchTimer.current);
     relatedSearchTimer.current = setTimeout(async () => {
       setRelatedSearching(true);
       try {
         const res = await apiFetch<{ items: RelatedProductItem[] }>(
-          `/admin/products?search=${encodeURIComponent(relatedSearch)}&limit=10`
+          `/admin/products?search=${encodeURIComponent(relatedSearch)}&limit=10`,
         );
         const existing = new Set(relatedProducts.map((p) => p.id));
-        setRelatedResults((res.items ?? []).filter((p) => p.id !== id && !existing.has(p.id)));
-      } catch { /* ignore */ } finally { setRelatedSearching(false); }
+        setRelatedResults(
+          (res.items ?? []).filter((p) => p.id !== id && !existing.has(p.id)),
+        );
+      } catch {
+        /* ignore */
+      } finally {
+        setRelatedSearching(false);
+      }
     }, 300);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relatedSearch, id]);
   useEffect(() => {
     if (!product) return;
@@ -353,7 +372,9 @@ export default function ProductEditPage({
     setKeyCharacteristics(product.keyCharacteristics ?? "");
     setProductInfo(product.productInfo ?? "");
     setSendPolicy(product.sendPolicy ?? "");
-    setSizeAndFit((product as unknown as { sizeAndFit?: string }).sizeAndFit ?? "");
+    setSizeAndFit(
+      (product as unknown as { sizeAndFit?: string }).sizeAndFit ?? "",
+    );
     setReturnPolicy(product.returnPolicy ?? "");
     setDeliveryEstimate(product.deliveryEstimate ?? "");
     setSupplierLink(
@@ -2325,7 +2346,9 @@ export default function ProductEditPage({
                                       {canEditProduct && (
                                         <button
                                           type="button"
-                                          onClick={() => removeFilterValue(a.filterId, v.id)}
+                                          onClick={() =>
+                                            removeFilterValue(a.filterId, v.id)
+                                          }
                                           className="opacity-70 hover:opacity-100 transition-opacity"
                                           aria-label={`Remover ${v.label}`}
                                         >
@@ -2391,23 +2414,35 @@ export default function ProductEditPage({
 
           {/* Selected products preview */}
           {relatedProducts.length > 0 && (
-            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            <div className="flex gap-3 overflow-x-auto py-4 no-scrollbar">
               {relatedProducts.map((p) => {
                 const thumb = p.media?.[0]?.url ?? null;
                 return (
                   <div key={p.id} className="relative shrink-0 w-[100px]">
                     <div className="w-[100px] h-[100px] rounded-xl overflow-hidden bg-surface-hover border border-border-light">
                       {thumb ? (
-                        <img src={thumb} alt={p.name} className="w-full h-full object-cover" />
+                        <img
+                          src={thumb}
+                          alt={p.name}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">Sem imagem</div>
+                        <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">
+                          Sem imagem
+                        </div>
                       )}
                     </div>
-                    <p className="text-[11px] text-text-dark font-figtree truncate mt-1">{p.name}</p>
+                    <p className="text-[11px] text-text-dark font-figtree truncate mt-1">
+                      {p.name}
+                    </p>
                     {canEditProduct && (
                       <button
                         type="button"
-                        onClick={() => setRelatedProducts((prev) => prev.filter((x) => x.id !== p.id))}
+                        onClick={() =>
+                          setRelatedProducts((prev) =>
+                            prev.filter((x) => x.id !== p.id),
+                          )
+                        }
                         className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white flex items-center justify-center hover:opacity-80 transition-opacity"
                         aria-label="Remover"
                       >
@@ -2428,15 +2463,19 @@ export default function ProductEditPage({
                 value={relatedSearch}
                 onChange={(e) => setRelatedSearch(e.target.value)}
                 placeholder="Pesquisar produto…"
-                className="w-full h-12 px-3 rounded-xl border border-border bg-card text-text-dark text-sm font-figtree placeholder:text-text-label focus:outline-none focus:border-accent transition-colors"
+                className="w-72 h-12 px-3 rounded-xl border border-border bg-card text-text-dark text-sm font-figtree placeholder:text-text-label focus:outline-none focus:border-accent transition-colors"
               />
               {(relatedSearching || relatedResults.length > 0) && (
                 <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-72 overflow-y-auto">
                   {relatedSearching && (
-                    <p className="px-4 py-3 text-sm text-text-muted font-figtree">A pesquisar…</p>
+                    <p className="px-4 py-3 text-sm text-text-muted font-figtree">
+                      A pesquisar…
+                    </p>
                   )}
                   {!relatedSearching && relatedResults.length === 0 && (
-                    <p className="px-4 py-3 text-sm text-text-muted font-figtree">Sem resultados</p>
+                    <p className="px-4 py-3 text-sm text-text-muted font-figtree">
+                      Sem resultados
+                    </p>
                   )}
                   {relatedResults.map((p) => {
                     const thumb = p.media?.[0]?.url ?? null;
@@ -2446,7 +2485,9 @@ export default function ProductEditPage({
                         type="button"
                         onClick={() => {
                           setRelatedProducts((prev) =>
-                            prev.find((x) => x.id === p.id) ? prev : [...prev, p]
+                            prev.find((x) => x.id === p.id)
+                              ? prev
+                              : [...prev, p],
                           );
                           setRelatedSearch("");
                           setRelatedResults([]);
@@ -2455,14 +2496,22 @@ export default function ProductEditPage({
                       >
                         <div className="w-10 h-10 rounded-lg overflow-hidden bg-surface-hover shrink-0">
                           {thumb ? (
-                            <img src={thumb} alt={p.name} className="w-full h-full object-cover" />
+                            <img
+                              src={thumb}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
                             <div className="w-full h-full bg-border" />
                           )}
                         </div>
                         <div className="flex-1 text-left min-w-0">
-                          <p className="text-sm text-text-dark font-figtree truncate">{p.name}</p>
-                          <p className="text-xs text-text-muted font-figtree">{p.brand?.name}</p>
+                          <p className="text-sm text-text-dark font-figtree truncate">
+                            {p.name}
+                          </p>
+                          <p className="text-xs text-text-muted font-figtree">
+                            {p.brand?.name}
+                          </p>
                         </div>
                       </button>
                     );
@@ -2473,7 +2522,9 @@ export default function ProductEditPage({
           )}
 
           {relatedProducts.length === 0 && !canEditProduct && (
-            <p className="text-sm text-text-muted font-figtree">Nenhum produto associado.</p>
+            <p className="text-sm text-text-muted font-figtree">
+              Nenhum produto associado.
+            </p>
           )}
 
           {/* Save button when there's no header button (empty list) */}

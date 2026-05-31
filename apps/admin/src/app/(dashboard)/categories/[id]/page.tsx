@@ -304,13 +304,13 @@ export default function CategoryDetailPage({
       Array.from({ length: 21 }, (_, i) => i + 1)
         .filter(
           (i) =>
-            i === (category?.position ?? -1) ||
-            !occupiedScopedPositions.has(i),
+            i === (category?.position ?? -1) || !occupiedScopedPositions.has(i),
         )
         .map((i) => ({ value: String(i), label: String(i) }));
 
   useEffect(() => {
-    if (!isEditing || !category || availablePositionOptions.length === 0) return;
+    if (!isEditing || !category || availablePositionOptions.length === 0)
+      return;
     const stillValid = availablePositionOptions.some(
       (opt) => opt.value === editPosition,
     );
@@ -322,7 +322,13 @@ export default function CategoryDetailPage({
         : undefined;
       setEditPosition((preferred ?? availablePositionOptions[0]).value);
     }
-  }, [isEditing, category, availablePositionOptions, editPosition, nextPositionData]);
+  }, [
+    isEditing,
+    category,
+    availablePositionOptions,
+    editPosition,
+    nextPositionData,
+  ]);
 
   if (catLoading) {
     return (

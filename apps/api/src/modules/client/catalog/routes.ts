@@ -17,6 +17,8 @@ const ProductListQuery = z.object({
   color: z.string().optional(),
   /** Comma-separated size IDs */
   size: z.string().optional(),
+  /** Comma-separated child-category slugs to restrict search to specific sub-categories */
+  subcats: z.string().optional(),
   // attr-{attrDefId}=optId1,optId2 params are parsed separately from raw query
 });
 
@@ -33,7 +35,8 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           orderBy: {
             type: "string",
             enum: ["position"],
-            description: "Order root categories by this field (default: position)",
+            description:
+              "Order root categories by this field (default: position)",
           },
         },
       },
@@ -123,7 +126,8 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         properties: {
           colorSearch: {
             type: "string",
-            description: "Search term to filter colors by name (top 20 returned by default)",
+            description:
+              "Search term to filter colors by name (top 20 returned by default)",
           },
         },
       },
@@ -267,12 +271,32 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
 
       // Gather all descendant category IDs
       const descendantIds = await getCategoryDescendantIds(category.id);
-      const categoryIds = [category.id, ...descendantIds];
+      let categoryIds = [category.id, ...descendantIds];
+
+      // If specific sub-categories were requested, restrict to those slugs
+      const subcatSlugs = q.subcats?.split(",").filter(Boolean) ?? [];
+      if (subcatSlugs.length > 0) {
+        const subcats = await prisma.category.findMany({
+          where: { slug: { in: subcatSlugs }, id: { in: descendantIds } },
+          select: { id: true },
+        });
+        if (subcats.length > 0) {
+          const subDescendantGroups = await Promise.all(
+            subcats.map((s) => getCategoryDescendantIds(s.id)),
+          );
+          categoryIds = [
+            ...subcats.map((s) => s.id),
+            ...subDescendantGroups.flat(),
+          ];
+        }
+      }
 
       // Parse attribute filters: any query param prefixed with "attr-"
       // attr-{attrDefId}=optId1,optId2  →  [{attrDefId, optionIds[]}]
       const attrFilters: { attrDefId: string; optionIds: string[] }[] = [];
-      for (const [key, value] of Object.entries(req.query as Record<string, unknown>)) {
+      for (const [key, value] of Object.entries(
+        req.query as Record<string, unknown>,
+      )) {
         if (key.startsWith("attr-") && typeof value === "string") {
           const attrDefId = key.slice(5); // strip "attr-" prefix
           const optionIds = value.split(",").filter(Boolean);
@@ -387,7 +411,13 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ["Catalog"],
       description:
-        "Returns all active brands with their associated categories. Response is cached for 5 minutes.",
+        "Returns brands. Pass ?categorySlug= to restrict to brands associated with that category tree.",
+      querystring: {
+        type: "object",
+        properties: {
+          categorySlug: { type: "string" },
+        },
+      },
       response: {
         200: {
           description: "Brands list",
@@ -396,8 +426,23 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         },
       },
     },
-    handler: async (_req, reply) => {
+    handler: async (req, reply) => {
+      const { categorySlug } = z
+        .object({ categorySlug: z.string().optional() })
+        .parse(req.query);
+
+      let categoryFilter: { brandCategories: { some: { categoryId: { in: string[] } } } } | undefined;
+      if (categorySlug) {
+        const cat = await prisma.category.findFirst({ where: { slug: categorySlug } });
+        if (cat) {
+          const descendantIds = await getCategoryDescendantIds(cat.id);
+          const allIds = [cat.id, ...descendantIds];
+          categoryFilter = { brandCategories: { some: { categoryId: { in: allIds } } } };
+        }
+      }
+
       const brands = await prisma.brand.findMany({
+        where: categoryFilter,
         orderBy: { name: "asc" },
         include: {
           brandCategories: {
@@ -408,6 +453,299 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         },
       });
       return reply.send(brands);
+    },
+  });
+
+  // GET /catalog/brand/:slug — brand detail
+  fastify.get<{ Params: { slug: string } }>("/brand/:slug", {
+    schema: {
+      tags: ["Catalog"],
+      description: "Returns a single brand by slug.",
+      params: { type: "object", required: ["slug"], properties: { slug: { type: "string" } } },
+      response: {
+        200: { description: "Brand detail", type: "object" },
+        404: { description: "Not found", type: "object", properties: { error: { type: "string" } } },
+      },
+    },
+    handler: async (req, reply) => {
+      const brand = await prisma.brand.findFirst({
+        where: { slug: req.params.slug },
+        select: { id: true, name: true, slug: true, logoUrl: true, landingImage1Url: true, landingImage2Url: true },
+      });
+      if (!brand) return reply.status(404).send({ error: "Brand not found" });
+      return reply.send(brand);
+    },
+  });
+
+  // GET /catalog/brand/:slug/filters — 3-level category tree + colors + sizes for a brand
+  fastify.get<{ Params: { slug: string } }>("/brand/:slug/filters", {
+    schema: {
+      tags: ["Catalog"],
+      description:
+        "Returns the 3-level category hierarchy, available colors, and available sizes for a brand's published products. Used to populate the filter panel on the brand products page.",
+      params: { type: "object", required: ["slug"], properties: { slug: { type: "string" } } },
+      response: {
+        200: { description: "Brand filter options", type: "object" },
+        404: { description: "Not found", type: "object", properties: { error: { type: "string" } } },
+      },
+    },
+    handler: async (req, reply) => {
+      const brand = await prisma.brand.findFirst({ where: { slug: req.params.slug } });
+      if (!brand) return reply.status(404).send({ error: "Brand not found" });
+
+      // Get the brand's directly-associated categories
+      const brandCategoryRows = await prisma.brandCategory.findMany({
+        where: { brandId: brand.id },
+        include: {
+          category: { select: { id: true, level: true } },
+        },
+      });
+
+      const directCatIds = brandCategoryRows.map((bc) => bc.category.id);
+
+      // Expand to full descendant tree (so level-0 entries also expose level-1 and level-2 children)
+      const descendantGroups = await Promise.all(
+        directCatIds.map((id) => getCategoryDescendantIds(id)),
+      );
+      const allRelatedCatIds = [
+        ...new Set([...directCatIds, ...descendantGroups.flat()]),
+      ];
+
+      // Fetch all involved categories with hierarchy info
+      const [allCats, allColors, sizes, attrDefs] = await Promise.all([
+        prisma.category.findMany({
+          where: { id: { in: allRelatedCatIds }, isActive: true },
+          orderBy: [{ level: "asc" }, { position: "asc" }],
+          select: { id: true, name: true, slug: true, level: true, parentId: true },
+        }),
+        // ALL system colors — sidebar does client-side search
+        prisma.color.findMany({
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, hexCode: true, slug: true },
+        }),
+        prisma.size.findMany({
+          where: { sizeCategories: { some: { categoryId: { in: allRelatedCatIds } } } },
+          orderBy: { position: "asc" },
+          select: { id: true, name: true, label: true, sizeSystem: true },
+        }),
+        // Attribute definitions for the brand's category tree, with per-category associations
+        prisma.attributeDefinition.findMany({
+          where: {
+            categories: { some: { categoryId: { in: allRelatedCatIds } } },
+            isActive: true,
+          },
+          include: {
+            options: { orderBy: { position: "asc" } },
+            categories: {
+              where: { categoryId: { in: allRelatedCatIds } },
+              select: { categoryId: true },
+            },
+          },
+          orderBy: { position: "asc" },
+        }),
+      ]);
+
+      // Build 3-level category tree
+      const level0 = allCats.filter((c) => c.level === 0);
+      const level1 = allCats.filter((c) => c.level === 1);
+      const level2 = allCats.filter((c) => c.level === 2);
+
+      const categories = level0.map((c0) => ({
+        id: c0.id,
+        name: c0.name,
+        slug: c0.slug,
+        children: level1
+          .filter((c1) => c1.parentId === c0.id)
+          .map((c1) => ({
+            id: c1.id,
+            name: c1.name,
+            slug: c1.slug,
+            children: level2
+              .filter((c2) => c2.parentId === c1.id)
+              .map((c2) => ({ id: c2.id, name: c2.name, slug: c2.slug })),
+          })),
+      }));
+
+      const filters = attrDefs.map((def) => ({
+        id: def.id,
+        name: def.name,
+        inputType: def.inputType,
+        categoryIds: def.categories.map((c) => c.categoryId),
+        options: def.options.map((o) => ({
+          id: o.id,
+          label: o.label,
+          value: o.value,
+          position: o.position,
+        })),
+      }));
+
+      return reply.send({ categories, colors: allColors, sizes, filters });
+    },
+  });
+
+  // GET /catalog/brand/:slug/products — paginated products for a brand with optional filters
+  fastify.get<{ Params: { slug: string } }>("/brand/:slug/products", {
+    schema: {
+      tags: ["Catalog"],
+      description:
+        "Offset-paginated product listing for a brand. Supports filtering by category (any level, comma-separated slugs), color, size, and price range.",
+      params: { type: "object", required: ["slug"], properties: { slug: { type: "string" } } },
+      querystring: {
+        type: "object",
+        properties: {
+          page: { type: "integer", default: 1 },
+          limit: { type: "integer", default: 24 },
+          sort: { type: "string", enum: ["newest", "price_asc", "price_desc"], default: "newest" },
+          cat: { type: "string", description: "Comma-separated category slugs at any level" },
+          color: { type: "string", description: "Comma-separated color IDs" },
+          size: { type: "string", description: "Comma-separated size IDs" },
+          minPrice: { type: "number" },
+          maxPrice: { type: "number" },
+        },
+      },
+      response: {
+        200: {
+          description: "Paged products",
+          type: "object",
+          properties: {
+            items: { type: "array", items: { type: "object" } },
+            total: { type: "integer" },
+            page: { type: "integer" },
+            totalPages: { type: "integer" },
+          },
+        },
+        404: { description: "Not found", type: "object", properties: { error: { type: "string" } } },
+      },
+    },
+    handler: async (req, reply) => {
+      const brand = await prisma.brand.findFirst({ where: { slug: req.params.slug } });
+      if (!brand) return reply.status(404).send({ error: "Brand not found" });
+
+      const BrandProductQuery = z.object({
+        page: z.coerce.number().int().min(1).default(1),
+        limit: z.coerce.number().int().min(1).max(100).default(24),
+        sort: z.enum(["newest", "price_asc", "price_desc"]).default("newest"),
+        cat: z.string().optional(),
+        color: z.string().optional(),
+        size: z.string().optional(),
+        minPrice: z.coerce.number().optional(),
+        maxPrice: z.coerce.number().optional(),
+      });
+
+      const parsed = BrandProductQuery.safeParse(req.query);
+      if (!parsed.success)
+        return reply.status(400).send({ error: parsed.error.errors[0]?.message ?? "Invalid query" });
+      const q = parsed.data;
+
+      const colorIds = q.color?.split(",").filter(Boolean) ?? [];
+      const sizeIds = q.size?.split(",").filter(Boolean) ?? [];
+      const catSlugs = q.cat?.split(",").filter(Boolean) ?? [];
+
+      let categoryFilter: Record<string, unknown> = {};
+      if (catSlugs.length > 0) {
+        const foundCats = await prisma.category.findMany({
+          where: { slug: { in: catSlugs } },
+          select: { id: true },
+        });
+        const catIds = foundCats.map((c) => c.id);
+        const descendantGroups = await Promise.all(catIds.map((id) => getCategoryDescendantIds(id)));
+        const allCatIds = [...catIds, ...descendantGroups.flat()];
+        categoryFilter = { categories: { some: { categoryId: { in: allCatIds } } } };
+      }
+
+      // Parse attrg-{name} params: each is an OR group (all pairs), AND between groups
+      // Format: attrg-cor=defId1:optId1,defId2:optId2,...
+      const attrGroupConditions: object[] = [];
+      for (const [key, value] of Object.entries(req.query as Record<string, unknown>)) {
+        if (key.startsWith("attrg-") && typeof value === "string") {
+          const pairs = value
+            .split(",")
+            .map((p) => { const [defId, optId] = p.split(":"); return { defId, optId }; })
+            .filter((p) => p.defId && p.optId);
+          if (pairs.length > 0) {
+            attrGroupConditions.push({
+              OR: pairs.map(({ defId, optId }) => ({
+                attributes: {
+                  some: { attributeDefinitionId: defId, attributeOptionId: optId },
+                },
+              })),
+            });
+          }
+        }
+      }
+
+      const orderBy =
+        q.sort === "price_asc"
+          ? { basePrice: "asc" as const }
+          : q.sort === "price_desc"
+            ? { basePrice: "desc" as const }
+            : { createdAt: "desc" as const };
+
+      const where = {
+        brandId: brand.id,
+        status: "published" as const,
+        isVisible: true,
+        ...categoryFilter,
+        ...(colorIds.length ? { variants: { some: { colorId: { in: colorIds } } } } : {}),
+        ...(sizeIds.length ? { sizes: { some: { sizeId: { in: sizeIds } } } } : {}),
+        ...(q.minPrice !== undefined || q.maxPrice !== undefined
+          ? {
+              basePrice: {
+                ...(q.minPrice !== undefined ? { gte: q.minPrice } : {}),
+                ...(q.maxPrice !== undefined ? { lte: q.maxPrice } : {}),
+              },
+            }
+          : {}),
+        ...(attrGroupConditions.length > 0 ? { AND: attrGroupConditions } : {}),
+      };
+
+      const skip = (q.page - 1) * q.limit;
+      const [products, total] = await Promise.all([
+        prisma.product.findMany({
+          skip,
+          take: q.limit,
+          where,
+          orderBy,
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            basePrice: true,
+            isIndicativePrice: true,
+            hasDiscount: true,
+            discountPrice: true,
+            stockStatus: true,
+            brand: { select: { id: true, name: true, slug: true } },
+            media: {
+              where: { colorId: null, isDeleted: false } as never,
+              take: 6,
+              orderBy: { position: "asc" as const },
+              select: { id: true, url: true, mediaType: true, isPrimary: true },
+            },
+            variants: {
+              take: 40,
+              orderBy: { position: "asc" as const },
+              select: {
+                colorId: true,
+                color: { select: { id: true, name: true, hexCode: true } },
+              },
+            },
+          },
+        }),
+        prisma.product.count({ where }),
+      ]);
+
+      const mappedProducts = products.map((p) => {
+        const seen = new Set<string>();
+        const variants = p.variants.filter((v) => {
+          if (!v.colorId || seen.has(v.colorId)) return false;
+          seen.add(v.colorId);
+          return true;
+        });
+        return { ...p, variants };
+      });
+
+      return reply.send(offsetPaginate(mappedProducts, total, q.page, q.limit));
     },
   });
 
@@ -534,12 +872,19 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
                     where: { colorId: null, isDeleted: false } as never,
                     take: 3,
                     orderBy: { position: "asc" },
-                    select: { id: true, url: true, mediaType: true, isPrimary: true },
+                    select: {
+                      id: true,
+                      url: true,
+                      mediaType: true,
+                      isPrimary: true,
+                    },
                   },
                   variants: {
                     select: {
                       colorId: true,
-                      color: { select: { id: true, name: true, hexCode: true } },
+                      color: {
+                        select: { id: true, name: true, hexCode: true },
+                      },
                     },
                     orderBy: { position: "asc" },
                   },
@@ -554,9 +899,14 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: "Product not found" });
 
       // Flatten relatedProducts join table rows, deduplicating variant colors
-      const { relatedProducts: relatedRows, ...productRest } = product as typeof product & {
-        relatedProducts: Array<{ target: { variants?: Array<{ colorId: string | null; color: unknown }> } & Record<string, unknown> }>;
-      };
+      const { relatedProducts: relatedRows, ...productRest } =
+        product as typeof product & {
+          relatedProducts: Array<{
+            target: {
+              variants?: Array<{ colorId: string | null; color: unknown }>;
+            } & Record<string, unknown>;
+          }>;
+        };
       return reply.send({
         ...productRest,
         relatedProducts: (relatedRows ?? []).map((r) => {
@@ -644,6 +994,75 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         },
       });
       return reply.send(similar);
+    },
+  });
+
+  // GET /catalog/collections/:slug — single collection detail
+  fastify.get<{ Params: { slug: string } }>("/collections/:slug", {
+    schema: {
+      tags: ["Catalog"],
+      description: "Returns a single collection by slug.",
+      params: { type: "object", required: ["slug"], properties: { slug: { type: "string" } } },
+      response: {
+        200: { description: "Collection detail", type: "object" },
+        404: { description: "Not found", type: "object", properties: { error: { type: "string" } } },
+      },
+    },
+    handler: async (req, reply) => {
+      const collection = await prisma.collection.findFirst({
+        where: { slug: req.params.slug, isActive: true },
+        select: { id: true, name: true, slug: true, coverImageUrl: true },
+      });
+      if (!collection) return reply.status(404).send({ error: "Collection not found" });
+      return reply.send(collection);
+    },
+  });
+
+  // GET /catalog/collections/:slug/filters — brands, colors and sizes available in the collection
+  fastify.get<{ Params: { slug: string } }>("/collections/:slug/filters", {
+    schema: {
+      tags: ["Catalog"],
+      description:
+        "Returns distinct brands, colors, and sizes for the published products in a collection. Sizes are derived from product variants (not the manual product_sizes table).",
+      params: { type: "object", required: ["slug"], properties: { slug: { type: "string" } } },
+      response: {
+        200: { description: "Filter options", type: "object" },
+        404: { description: "Not found", type: "object", properties: { error: { type: "string" } } },
+      },
+    },
+    handler: async (req, reply) => {
+      const collection = await prisma.collection.findFirst({
+        where: { slug: req.params.slug },
+        select: { id: true },
+      });
+      if (!collection) return reply.status(404).send({ error: "Collection not found" });
+
+      const productScope = {
+        collections: { some: { collectionId: collection.id } },
+        status: "published" as const,
+        isVisible: true,
+      };
+
+      const [brands, colors, sizes] = await Promise.all([
+        prisma.brand.findMany({
+          where: { products: { some: productScope } },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        }),
+        prisma.color.findMany({
+          where: { productVariants: { some: { product: productScope } } },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, hexCode: true, slug: true },
+        }),
+        // Sizes come from product variants — automatic, no manual association needed
+        prisma.size.findMany({
+          where: { productVariants: { some: { product: productScope } } },
+          orderBy: { position: "asc" },
+          select: { id: true, name: true, label: true, sizeSystem: true },
+        }),
+      ]);
+
+      return reply.send({ brands, colors, sizes });
     },
   });
 
@@ -768,6 +1187,13 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
             ? { basePrice: "desc" as const }
             : { createdAt: "desc" as const };
 
+      // Build variant sub-conditions separately to avoid duplicate object keys
+      // when both color and size are filtered (both live on ProductVariant).
+      const variantFilters: object[] = [];
+      if (colorIds.length) variantFilters.push({ variants: { some: { colorId: { in: colorIds } } } });
+      // Sizes derived from variants — no manual product_sizes join needed
+      if (sizeIds.length) variantFilters.push({ variants: { some: { sizeId: { in: sizeIds } } } });
+
       const collectionWhere = {
         collections: { some: { collectionId: collection.id } },
         status: "published" as const,
@@ -781,12 +1207,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
               },
             }
           : {}),
-        ...(colorIds.length
-          ? { variants: { some: { colorId: { in: colorIds } } } }
-          : {}),
-        ...(sizeIds.length
-          ? { sizes: { some: { sizeId: { in: sizeIds } } } }
-          : {}),
+        ...(variantFilters.length > 0 ? { AND: variantFilters } : {}),
       };
 
       const skip = (q.page - 1) * q.limit;

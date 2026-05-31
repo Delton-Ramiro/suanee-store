@@ -1,47 +1,47 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 
 /* ── Contained scroll — stays within container-web boundaries ──────────────── */
 
 function ContainedScroll({ children }: { children: React.ReactNode }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollPct, setScrollPct] = useState(0);
+  const [viewportRatio, setViewportRatio] = useState(1);
 
-  const onScroll = useCallback(() => {
+  const measure = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const max = el.scrollWidth - el.clientWidth;
     setScrollPct(max > 0 ? el.scrollLeft / max : 0);
+    setViewportRatio(el.scrollWidth > 0 ? el.clientWidth / el.scrollWidth : 1);
   }, []);
 
-  const indicatorPct = Math.min(
-    Math.max(
-      scrollPct * 100 +
-        (scrollRef.current
-          ? (scrollRef.current.clientWidth / scrollRef.current.scrollWidth) *
-            100
-          : 30),
-      10,
-    ),
-    100,
-  );
+  useEffect(() => {
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
+
+  const indicatorLeft = scrollPct * (1 - viewportRatio) * 100;
+  const indicatorWidth = Math.max(viewportRatio * 100, 5);
 
   return (
     <>
       <div
         ref={scrollRef}
-        onScroll={onScroll}
+        onScroll={measure}
         className="flex gap-1.25 overflow-x-auto no-scrollbar overscroll-x-contain"
       >
         {children}
       </div>
-      <div className="mt-4 h-[5px] bg-gray-100 overflow-hidden rounded-full">
+      <div className="mt-4 h-[5px] bg-gray-100 overflow-hidden rounded-full relative">
         <div
-          className="h-full rounded-full transition-[width] duration-100"
+          className="absolute top-0 h-full rounded-full transition-[left,width] duration-100"
           style={{
-            width: `${indicatorPct}%`,
+            left: `${indicatorLeft}%`,
+            width: `${indicatorWidth}%`,
             background: "rgba(16,87,142,0.31)",
           }}
         />
@@ -65,7 +65,7 @@ export type CategoryChild = {
 function SubcategoryCard({ category }: { category: CategoryChild }) {
   return (
     <Link
-      href={`/produtos?categoria=${category.slug}`}
+      href={`/categorias/${category.slug}/produtos`}
       className="flex-shrink-0 flex flex-col items-center gap-2 group"
     >
       <div className="relative overflow-hidden rounded-[10px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.10)] w-[160px] h-[145px] md:w-[200px] md:h-[180px]">
@@ -107,3 +107,5 @@ export function CategorySubcategories({
     </section>
   );
 }
+
+

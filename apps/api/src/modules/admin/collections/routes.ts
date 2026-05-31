@@ -437,7 +437,10 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
 
       // Duplicate position check within the same group
       const positionConflict = await prisma.collection.findFirst({
-        where: { position: body.position ?? 0, categoryId: body.categoryId ?? null },
+        where: {
+          position: body.position ?? 0,
+          categoryId: body.categoryId ?? null,
+        },
         select: { id: true, name: true },
       });
       if (positionConflict)
@@ -513,12 +516,10 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
         if (!cat)
           return reply.status(400).send({ error: "Categoria não encontrada" });
         if (cat.level !== 0)
-          return reply
-            .status(400)
-            .send({
-              error:
-                "Apenas categorias de nível 0 podem ser associadas a coleções",
-            });
+          return reply.status(400).send({
+            error:
+              "Apenas categorias de nível 0 podem ser associadas a coleções",
+          });
       }
 
       const before = await prisma.collection.findUnique({
@@ -528,12 +529,15 @@ export default async function adminCollectionsRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ error: "Collection not found" });
 
       // Resolve effective values after the patch
-      const effectivePosition = body.position !== undefined ? body.position : before.position;
+      const effectivePosition =
+        body.position !== undefined ? body.position : before.position;
       const effectiveCategoryId =
         body.categoryId !== undefined ? body.categoryId : before.categoryId;
 
       // Duplicate position check — only if position or group is changing
-      const positionChanging = effectivePosition !== before.position || effectiveCategoryId !== before.categoryId;
+      const positionChanging =
+        effectivePosition !== before.position ||
+        effectiveCategoryId !== before.categoryId;
       if (positionChanging) {
         const positionConflict = await prisma.collection.findFirst({
           where: {

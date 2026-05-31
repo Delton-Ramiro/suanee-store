@@ -35,12 +35,15 @@ export default async function CategoriaPage({
     apiFetch<CategoryDetail>(`/catalog/categories/${slug}`, {
       next: { revalidate: Revalidate.catalog },
     }).catch(() => null),
-    apiFetch<Brand[]>("/catalog/brands", {
+    apiFetch<Brand[]>(`/catalog/brands?categorySlug=${slug}`, {
       next: { revalidate: Revalidate.catalog },
     }).catch(() => []),
-    apiFetch<Collection[]>(`/catalog/collections?categorySlug=${slug}&orderBy=position`, {
-      next: { revalidate: Revalidate.catalog },
-    }).catch(() => []),
+    apiFetch<Collection[]>(
+      `/catalog/collections?categorySlug=${slug}&orderBy=position`,
+      {
+        next: { revalidate: Revalidate.catalog },
+      },
+    ).catch(() => []),
   ]);
 
   if (!category) notFound();
@@ -71,7 +74,7 @@ export default async function CategoriaPage({
       <CategorySubcategories children={l1Children} />
 
       {/* ── Brands ──────────────────────────────────────────────── */}
-      <CategoryBrands brands={brands} />
+      <CategoryBrands brands={brands} categorySlug={category.slug} />
 
       {/* ── Collections (Momentos especiais) ────────────────────── */}
       <CategoryCollections collections={collections} />

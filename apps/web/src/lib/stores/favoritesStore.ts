@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { authFetch } from "../api";
 
 export type FavoriteItem = {
   productId: string;
@@ -7,12 +8,9 @@ export type FavoriteItem = {
   brandName: string;
   imageUrl: string | null;
   price: number;
-  isIndicativePrice: boolean;
   hasDiscount: boolean;
   discountPrice: number | null;
-  categoryName: string | null;
-  colorName: string | null;
-  sizeName: string | null;
+  isIndicativePrice: boolean;
 };
 
 type FavoritesState = {
@@ -60,22 +58,35 @@ function getSnapshot(): FavoritesState {
   return state;
 }
 
+const SERVER_SNAPSHOT: FavoritesState = { items: [], isOpen: false };
+
 function getServerSnapshot(): FavoritesState {
   return SERVER_SNAPSHOT;
 }
 
-const SERVER_SNAPSHOT: FavoritesState = { items: [], isOpen: false };
-
 export const favoritesStore = {
-  /** Toggle a product in favorites */
+  /** Read the current items array (used by sync utilities). */
+  getItems(): FavoriteItem[] {
+    return state.items;
+  },
+
+  /** Replace all items — called when loading from server. */
+  setItems(items: FavoriteItem[]) {
+    setState({ items });
+    persist();
+  },
+
   toggle(item: FavoriteItem) {
     const exists = state.items.some((i) => i.productId === item.productId);
     if (exists) {
-      setState({
-        items: state.items.filter((i) => i.productId !== item.productId),
-      });
+      setState({ items: state.items.filter((i) => i.productId !== item.productId) });
+      authFetch(`/favorites/${item.productId}`, { method: "DELETE" }).catch(() => {});
     } else {
       setState({ items: [...state.items, item] });
+      authFetch("/favorites", {
+        method: "POST",
+        body: JSON.stringify({ productId: item.productId }),
+      }).catch(() => {});
     }
     persist();
   },
@@ -83,6 +94,7 @@ export const favoritesStore = {
   remove(productId: string) {
     setState({ items: state.items.filter((i) => i.productId !== productId) });
     persist();
+    authFetch(`/favorites/${productId}`, { method: "DELETE" }).catch(() => {});
   },
 
   isFavorited(productId: string) {
@@ -92,7 +104,6 @@ export const favoritesStore = {
   open() {
     setState({ isOpen: true });
   },
-
   close() {
     setState({ isOpen: false });
   },

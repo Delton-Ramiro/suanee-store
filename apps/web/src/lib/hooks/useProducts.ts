@@ -48,6 +48,8 @@ export type ProductFilters = {
   color?: string;
   /** Comma-separated size IDs */
   size?: string;
+  /** Comma-separated child-category slugs to restrict to specific sub-categories */
+  subcats?: string;
   /** Map of attrDefId → selected optionIds */
   attrFilters?: Record<string, string[]>;
 };
@@ -67,6 +69,7 @@ function buildProductsUrl(slug: string, filters: ProductFilters): string {
     params.set("maxPrice", String(filters.maxPrice));
   if (filters.color) params.set("color", filters.color);
   if (filters.size) params.set("size", filters.size);
+  if (filters.subcats) params.set("subcats", filters.subcats);
 
   for (const [defId, optIds] of Object.entries(filters.attrFilters ?? {})) {
     if (optIds.length > 0) params.set(`attr-${defId}`, optIds.join(","));

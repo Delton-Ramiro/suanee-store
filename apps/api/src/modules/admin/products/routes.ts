@@ -353,7 +353,11 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
         properties: { id: { type: "string", format: "uuid" } },
       },
       response: {
-        200: { description: "Related products", type: "array", items: { type: "object" } },
+        200: {
+          description: "Related products",
+          type: "array",
+          items: { type: "object" },
+        },
       },
     },
     handler: async (req, reply) => {
@@ -399,11 +403,18 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
         type: "object",
         required: ["relatedProductIds"],
         properties: {
-          relatedProductIds: { type: "array", items: { type: "string", format: "uuid" } },
+          relatedProductIds: {
+            type: "array",
+            items: { type: "string", format: "uuid" },
+          },
         },
       },
       response: {
-        200: { description: "OK", type: "object", properties: { count: { type: "integer" } } },
+        200: {
+          description: "OK",
+          type: "object",
+          properties: { count: { type: "integer" } },
+        },
       },
     },
     handler: async (req, reply) => {

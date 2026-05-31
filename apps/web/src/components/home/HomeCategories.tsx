@@ -25,7 +25,7 @@ function Card({
 }: Category & { className?: string }) {
   return (
     <Link
-      href={`/produtos?categoria=${encodeURIComponent(slug)}`}
+      href={`/categorias/${encodeURIComponent(slug)}`}
       className={`group relative block overflow-hidden rounded-[10px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.10)] bg-muted-bg ${className}`}
     >
       {imageUrl && (

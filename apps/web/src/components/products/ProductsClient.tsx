@@ -5,7 +5,11 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useProducts } from "@/lib/hooks/useProducts";
 import { useCategoryFilters } from "@/lib/hooks/useCategoryFilters";
 import { ProductCard } from "./ProductCard";
-import { FilterSidebar, type ActiveFilters } from "./FilterSidebar";
+import {
+  FilterSidebar,
+  type ActiveFilters,
+  type SubCategory,
+} from "./FilterSidebar";
 import { SortBar } from "./SortBar";
 import { Pagination } from "./Pagination";
 
@@ -19,6 +23,7 @@ type CategoryInfo = {
 
 type Props = {
   category: CategoryInfo;
+  subCategories?: SubCategory[];
 };
 
 const PAGE_LIMIT = 24;
@@ -47,6 +52,7 @@ function readFiltersFromUrl(params: URLSearchParams): ActiveFilters & {
     brand: params.get("brand")?.split(",").filter(Boolean) ?? [],
     color: params.get("color")?.split(",").filter(Boolean) ?? [],
     size: params.get("size")?.split(",").filter(Boolean) ?? [],
+    subcats: params.get("subcats")?.split(",").filter(Boolean) ?? [],
     minPrice: params.get("minPrice")
       ? Number(params.get("minPrice"))
       : undefined,
@@ -69,6 +75,7 @@ function buildUrl(
   if (filters.brand.length) params.set("brand", filters.brand.join(","));
   if (filters.color.length) params.set("color", filters.color.join(","));
   if (filters.size.length) params.set("size", filters.size.join(","));
+  if (filters.subcats.length) params.set("subcats", filters.subcats.join(","));
   if (filters.minPrice !== undefined)
     params.set("minPrice", String(filters.minPrice));
   if (filters.maxPrice !== undefined)
@@ -82,7 +89,7 @@ function buildUrl(
 
 /* ── ProductsClient ──────────────────────────────────────────────────────── */
 
-export function ProductsClient({ category }: Props) {
+export function ProductsClient({ category, subCategories }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -94,6 +101,7 @@ export function ProductsClient({ category }: Props) {
     brand: urlState.brand,
     color: urlState.color,
     size: urlState.size,
+    subcats: urlState.subcats,
     minPrice: urlState.minPrice,
     maxPrice: urlState.maxPrice,
     attrFilters: urlState.attrFilters,
@@ -108,6 +116,7 @@ export function ProductsClient({ category }: Props) {
       brand: state.brand,
       color: state.color,
       size: state.size,
+      subcats: state.subcats,
       minPrice: state.minPrice,
       maxPrice: state.maxPrice,
       attrFilters: state.attrFilters,
@@ -124,6 +133,7 @@ export function ProductsClient({ category }: Props) {
     brand: activeFilters.brand.join(",") || undefined,
     color: activeFilters.color.join(",") || undefined,
     size: activeFilters.size.join(",") || undefined,
+    subcats: activeFilters.subcats.join(",") || undefined,
     minPrice: activeFilters.minPrice,
     maxPrice: activeFilters.maxPrice,
     attrFilters: activeFilters.attrFilters,
@@ -163,6 +173,7 @@ export function ProductsClient({ category }: Props) {
     activeFilters.brand.length > 0 ||
     activeFilters.color.length > 0 ||
     activeFilters.size.length > 0 ||
+    activeFilters.subcats.length > 0 ||
     activeFilters.minPrice !== undefined ||
     activeFilters.maxPrice !== undefined ||
     Object.values(activeFilters.attrFilters).some((v) => v.length > 0);
@@ -206,6 +217,7 @@ export function ProductsClient({ category }: Props) {
               onChange={handleFiltersChange}
               isOpen={filtersOpen}
               onClose={() => setFiltersOpen(false)}
+              subCategories={subCategories}
             />
           )}
         </div>
@@ -219,6 +231,7 @@ export function ProductsClient({ category }: Props) {
               onChange={handleFiltersChange}
               isOpen={filtersOpen}
               onClose={() => setFiltersOpen(false)}
+              subCategories={subCategories}
             />
           </div>
         )}
@@ -226,9 +239,9 @@ export function ProductsClient({ category }: Props) {
         {/* Product grid */}
         <div className="flex-1 min-w-0">
           {isLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-[5px]">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-1.25 gap-y-6">
               {Array.from({ length: PAGE_LIMIT }).map((_, i) => (
-                <div key={i} className="skeleton rounded-[10px] aspect-[3/4]" />
+                <div key={i} className="skeleton rounded-[10px] aspect-3/4" />
               ))}
             </div>
           ) : products.length === 0 ? (
@@ -242,7 +255,7 @@ export function ProductsClient({ category }: Props) {
             </div>
           ) : (
             <div
-              className={`grid gap-[5px] transition-opacity duration-200 ${
+              className={`grid gap-x-1.25 gap-y-6 transition-opacity duration-200 ${
                 isFetching ? "opacity-60" : "opacity-100"
               } ${
                 filtersOpen

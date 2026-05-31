@@ -2,11 +2,22 @@
 
 import Link from "next/link";
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Search, Heart, User, ShoppingBag, Menu, X } from "lucide-react";
+import {
+  Search,
+  Heart,
+  User,
+  ShoppingBag,
+  Menu,
+  X,
+  LogOut,
+} from "lucide-react";
 import { useCategoryTree } from "@/lib/hooks/useCategoryTree";
 import { MegaMenu } from "@/components/MegaMenu";
 import { useCart, cartStore } from "@/lib/stores/cartStore";
 import { useFavorites, favoritesStore } from "@/lib/stores/favoritesStore";
+import { useAuth } from "@/lib/auth";
+import { ordersStore } from "@/lib/stores/ordersStore";
+import { searchStore } from "@/lib/stores/searchStore";
 
 /* ─── Icon sizes ──────────────────────────────────────────────── */
 const iconCls = "w-[22px] h-[22px] stroke-[1.5]";
@@ -77,6 +88,7 @@ export default function Header() {
   const { data: tree } = useCategoryTree();
   const { items: cartItems } = useCart();
   const { items: favoriteItems } = useFavorites();
+  const { user, signOut } = useAuth();
 
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
   const favoriteCount = favoriteItems.length;
@@ -135,7 +147,7 @@ export default function Header() {
                 href={`/categorias/${cat.slug}`}
                 onMouseEnter={() => openMenu(cat.id)}
                 onMouseLeave={scheduleClose}
-              className="text-sm font-medium whitespace-nowrap transition-colors duration-150 px-3 py-1.5 rounded-md text-brand hover:text-primary"
+                className="text-sm font-medium whitespace-nowrap transition-colors duration-150 px-3 py-1.5 rounded-md text-brand hover:text-primary"
               >
                 {cat.name}
               </Link>
@@ -162,9 +174,9 @@ export default function Header() {
 
             {/* Bottom row — action icons */}
             <div className="flex items-center gap-4">
-              <IconBtn href="/pesquisa" label="Pesquisar">
+              <IconBtnAction onClick={searchStore.open} label="Pesquisar">
                 <Search className={iconCls} />
-              </IconBtn>
+              </IconBtnAction>
 
               <IconBtnAction
                 onClick={favoritesStore.open}
@@ -174,9 +186,33 @@ export default function Header() {
                 <Heart className={iconCls} />
               </IconBtnAction>
 
-              <IconBtn href="/conta" label="A minha conta">
-                <User className={iconCls} />
-              </IconBtn>
+              {user ? (
+                <>
+                  <IconBtnAction
+                    onClick={ordersStore.open}
+                    label="As minhas compras"
+                  >
+                    {user.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={user.name}
+                        className="w-8 h-8 rounded-full object-cover ring-1 ring-brand/20"
+                      />
+                    ) : (
+                      <span className="w-5.5 h-5.5 rounded-full bg-brand text-white text-[10px] font-bold flex items-center justify-center uppercase leading-none">
+                        {user.name.charAt(0)}
+                      </span>
+                    )}
+                  </IconBtnAction>
+                  <IconBtnAction onClick={signOut} label="Terminar sessão">
+                    <LogOut className={iconCls} />
+                  </IconBtnAction>
+                </>
+              ) : (
+                <IconBtn href="/login" label="Entrar">
+                  <User className={iconCls} />
+                </IconBtn>
+              )}
 
               {/* Separator */}
               <span className="w-px h-5 bg-brand/20" aria-hidden="true" />
@@ -193,10 +229,14 @@ export default function Header() {
 
           {/* Mobile — icons + hamburger */}
           <div className="flex md:hidden ml-auto items-center gap-3">
-            <IconBtn href="/pesquisa" label="Pesquisar">
+            <IconBtnAction onClick={searchStore.open} label="Pesquisar">
               <Search className="w-[20px] h-[20px] stroke-[1.5]" />
-            </IconBtn>
-            <IconBtnAction onClick={cartStore.open} label="Carrinho" badge={cartCount}>
+            </IconBtnAction>
+            <IconBtnAction
+              onClick={cartStore.open}
+              label="Carrinho"
+              badge={cartCount}
+            >
               <ShoppingBag className="w-[20px] h-[20px] stroke-[1.5]" />
             </IconBtnAction>
             <button
@@ -284,16 +324,47 @@ export default function Header() {
 
               {/* Account shortcuts */}
               <div className="flex flex-col gap-3">
-                <Link
-                  href="/conta"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
-                >
-                  <User className="w-4 h-4" />A minha conta
-                </Link>
+                {user ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        ordersStore.open();
+                      }}
+                      className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
+                    >
+                      <User className="w-4 h-4" />
+                      As minhas compras
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileOpen(false);
+                        signOut();
+                      }}
+                      className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Terminar sessão
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
+                  >
+                    <User className="w-4 h-4" />
+                    Entrar / Criar conta
+                  </Link>
+                )}
                 <button
                   type="button"
-                  onClick={() => { setMobileOpen(false); favoritesStore.open(); }}
+                  onClick={() => {
+                    setMobileOpen(false);
+                    favoritesStore.open();
+                  }}
                   className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
                 >
                   <Heart className="w-4 h-4" />

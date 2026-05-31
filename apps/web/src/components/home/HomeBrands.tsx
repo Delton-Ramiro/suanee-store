@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { HorizontalScroll } from "./shared/HorizontalScroll";
-import { SectionHeading } from "./shared/SectionHeading";
 
 export type Brand = {
   id: string;
@@ -44,8 +43,16 @@ export function HomeBrands({ brands }: { brands: Brand[] }) {
 
   return (
     <section className="py-8 md:py-10">
-      <div className="relative z-10">
-        <SectionHeading eyebrow="Ver todas" title="Marcas para si" />
+      <div className="relative z-10 mb-4 md:mb-6">
+        <Link
+          href="/marcas"
+          className="text-muted-bg text-sm md:text-xl font-normal leading-none hover:underline"
+        >
+          Ver todas
+        </Link>
+        <p className="font-inter font-medium text-2xl md:text-h2 text-black tracking-[0.02em] leading-none mt-0.5">
+          Marcas para si
+        </p>
       </div>
 
       <HorizontalScroll wrapperClassName="-mt-3 md:-mt-9">
