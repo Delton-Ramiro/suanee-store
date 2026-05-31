@@ -24,7 +24,7 @@ export const OrderStatus = z.enum([
   "cancelled",
 ]);
 export const SenderType = z.enum(["user", "admin"]);
-export const MessageMediaType = z.enum(["image", "video"]);
+export const MessageMediaType = z.enum(["image", "video", "pdf"]);
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
@@ -470,7 +470,7 @@ export const SendMessageSchema = z
 
 export const PresignRequestSchema = z.object({
   filename: z.string().min(1).max(255),
-  contentType: z.string().regex(/^(image|video)\/.+/),
+  contentType: z.string().regex(/^(image|video)\/.+|^application\/pdf$/),
   context: z.enum([
     "chat",
     "product",

@@ -10,9 +10,6 @@ import {
 } from "../../../jobs/index.js";
 import { decodeCursor, offsetPaginate, paginate } from "../../../lib/utils.js";
 
-const StartConversationSchema = z.object({
-  message: z.string().min(1).max(2000),
-});
 
 const ConversationListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -156,14 +153,14 @@ export default async function clientChatsRoutes(fastify: FastifyInstance) {
         "Start a new conversation or resume an existing one. Each user has a single conversation thread with admins; calling this again on an existing thread appends the message without creating duplicates.",
       body: {
         type: "object",
-        required: ["message"],
         properties: {
-          message: {
+          content: {
             type: "string",
-            minLength: 1,
-            maxLength: 2000,
+            maxLength: 5000,
             example: "Olá, quero saber sobre o produto X",
           },
+          mediaUrl: { type: "string" },
+          mediaType: { type: "string", enum: ["image", "video", "pdf"] },
         },
       },
       response: {
@@ -180,7 +177,7 @@ export default async function clientChatsRoutes(fastify: FastifyInstance) {
       },
     },
     handler: async (req, reply) => {
-      const { message } = StartConversationSchema.parse(req.body);
+      const body = SendMessageSchema.parse(req.body);
 
       const sender = await prisma.user.findUnique({
         where: { id: req.user.sub },
@@ -199,7 +196,9 @@ export default async function clientChatsRoutes(fastify: FastifyInstance) {
             conversationId: existing.id,
             senderId: req.user.sub,
             senderType: "user",
-            content: message,
+            content: body.content,
+            mediaUrl: body.mediaUrl,
+            mediaType: body.mediaType as never,
             isRead: false,
           },
         });
@@ -219,7 +218,7 @@ export default async function clientChatsRoutes(fastify: FastifyInstance) {
           conversationId: existing.id,
           messageId: msg.id,
           senderName,
-          preview: message,
+          preview: body.content ?? "",
         });
         await scheduleUnreadReminder({
           conversationId: existing.id,
@@ -238,7 +237,9 @@ export default async function clientChatsRoutes(fastify: FastifyInstance) {
             conversationId: conv.id,
             senderId: req.user.sub,
             senderType: "user",
-            content: message,
+            content: body.content,
+            mediaUrl: body.mediaUrl,
+            mediaType: body.mediaType as never,
             isRead: false,
           },
         });
@@ -259,7 +260,7 @@ export default async function clientChatsRoutes(fastify: FastifyInstance) {
         conversationId: conversation.id,
         messageId: firstMsg?.id ?? "",
         senderName,
-        preview: firstMsg?.content ?? message,
+        preview: firstMsg?.content ?? "",
       });
 
       return reply.status(201).send(conversation);

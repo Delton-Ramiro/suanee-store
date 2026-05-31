@@ -16,7 +16,8 @@ const ALLOWED_IMAGE_MIME = [
   "image/gif",
 ];
 const ALLOWED_VIDEO_MIME = ["video/mp4", "video/webm", "video/quicktime"];
-const ALLOWED_MIME = [...ALLOWED_IMAGE_MIME, ...ALLOWED_VIDEO_MIME];
+const ALLOWED_PDF_MIME = ["application/pdf"];
+const ALLOWED_MIME = [...ALLOWED_IMAGE_MIME, ...ALLOWED_VIDEO_MIME, ...ALLOWED_PDF_MIME];
 
 export default async function adminMediaRoutes(fastify: FastifyInstance) {
   // POST /admin/media/presign — request a presigned upload URL for admin-uploaded assets

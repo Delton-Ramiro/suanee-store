@@ -5,6 +5,7 @@ import { FavoritesDrawer } from "@/components/FavoritesDrawer";
 import { OrdersDrawer } from "@/components/OrdersDrawer";
 import { SearchOverlay } from "@/components/SearchOverlay";
 import { LoginModal } from "@/components/LoginModal";
+import { ClientChatPanel } from "@/components/ClientChatPanel";
 
 export default function ShopLayout({
   children,
@@ -20,6 +21,7 @@ export default function ShopLayout({
       <Footer />
       <SearchOverlay />
       <LoginModal />
+      <ClientChatPanel />
       <CartDrawer />
       <FavoritesDrawer />
       <OrdersDrawer />

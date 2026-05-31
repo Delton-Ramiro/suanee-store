@@ -49,6 +49,9 @@ export default async function clientCartRoutes(fastify: FastifyInstance) {
               sku: true,
               stockQuantity: true,
               price: true,
+              hasDiscount: true,
+              discountPrice: true,
+              isIndicativePrice: true,
               color: { select: { id: true, name: true, hexCode: true } },
               size: { select: { id: true, name: true, label: true } },
               product: {
@@ -75,9 +78,13 @@ export default async function clientCartRoutes(fastify: FastifyInstance) {
       });
 
       const subtotal = items.reduce((sum, item) => {
-        const price =
-          item.variant.product.discountPrice ?? item.variant.product.basePrice;
-        return sum + Number(price) * item.quantity;
+        const { variant } = item;
+        const { product } = variant;
+        const basePrice = Number(variant.price ?? product.basePrice);
+        const discountPrice = variant.discountPrice ?? product.discountPrice;
+        const hasDiscount = variant.hasDiscount || product.hasDiscount;
+        const price = hasDiscount && discountPrice ? Number(discountPrice) : basePrice;
+        return sum + price * item.quantity;
       }, 0);
 
       return reply.send({ items, subtotal });

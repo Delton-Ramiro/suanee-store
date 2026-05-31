@@ -65,6 +65,7 @@ enum SenderType {
 enum MessageMediaType {
   image
   video
+  pdf
 }
 
 enum ProductStatus {

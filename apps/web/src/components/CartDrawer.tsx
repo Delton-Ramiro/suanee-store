@@ -2,6 +2,8 @@
 
 import { Minus, Plus } from "lucide-react";
 import { useCart, cartStore } from "@/lib/stores/cartStore";
+import { chatStore } from "@/lib/stores/chatStore";
+import { useAuth } from "@/lib/auth";
 import { DrawerPanel, DrawerItemRow } from "./DrawerPanel";
 
 function fmt(v: number) {
@@ -10,8 +12,18 @@ function fmt(v: number) {
 
 export function CartDrawer() {
   const { items, isOpen } = useCart();
+  const { user } = useAuth();
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+  function handleConversar() {
+    cartStore.close();
+    if (user) {
+      chatStore.open();
+    } else {
+      window.location.href = "/login";
+    }
+  }
 
   const footer = (
     <div className="flex items-center justify-between gap-4">
@@ -21,6 +33,7 @@ export function CartDrawer() {
       </div>
       <button
         type="button"
+        onClick={handleConversar}
         className="bg-brand text-white text-sm font-semibold px-6 h-11 hover:bg-primary transition-colors"
       >
         Conversar
