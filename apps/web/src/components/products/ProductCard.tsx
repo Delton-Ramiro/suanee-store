@@ -190,13 +190,13 @@ export function ProductCard({
       <div className="flex flex-col gap-3.75">
         <div className="flex flex-col gap-1">
           <p
-            className={`font-bold text-text-dark leading-tight tracking-[0.38px] ${
+            className={`font-bold text-brand leading-tight tracking-[0.38px] ${
               compact ? "text-h6" : "text-h5"
             }`}
           >
             {product.brand.name}
           </p>
-          <p className="text-[13px] font-normal text-text-dark tracking-[0.26px] leading-snug line-clamp-2">
+          <p className="text-[13px] font-normal text-brand tracking-[0.26px] leading-snug line-clamp-2">
             {product.name}
           </p>
         </div>
@@ -206,7 +206,7 @@ export function ProductCard({
           <div className="flex items-center justify-between gap-2 pr-6">
             <span
               className={`text-h6 font-bold leading-none ${
-                product.isIndicativePrice ? "text-accent" : "text-text-dark"
+                product.isIndicativePrice ? "text-accent" : "text-brand"
               }`}
             >
               {formatPrice(basePrice)}
@@ -235,7 +235,7 @@ export function ProductCard({
           <div className="flex items-center justify-between gap-2 pr-6.25">
             <span
               className={`text-[16px] font-bold whitespace-nowrap tracking-[0.32px] ${
-                product.isIndicativePrice ? "text-accent" : "text-text-dark"
+                product.isIndicativePrice ? "text-accent" : "text-brand"
               }`}
             >
               {formatPrice(basePrice)}

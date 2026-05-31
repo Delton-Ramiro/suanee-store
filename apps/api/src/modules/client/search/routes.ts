@@ -191,4 +191,38 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
       return reply.send(terms);
     },
   });
+
+  // GET /search/most-searched — most-searched categories for client portal
+  fastify.get("/most-searched", {
+    schema: {
+      tags: ["Search"],
+      description:
+        "Returns the top 10 most-searched categories with level and parent info for URL construction. Level 1 → /categorias/[slug], Level 2+ → /categorias/[slug]/produtos.",
+      response: {
+        200: {
+          description: "Most-searched categories",
+          type: "array",
+          items: { type: "object" },
+        },
+      },
+    },
+    handler: async (_req, reply) => {
+      const items = await prisma.mostSearched.findMany({
+        orderBy: { position: "asc" },
+        take: 10,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              level: true,
+              parent: { select: { slug: true } },
+            },
+          },
+        },
+      });
+      return reply.send(items);
+    },
+  });
 }

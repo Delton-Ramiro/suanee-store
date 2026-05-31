@@ -2,48 +2,29 @@
 
 import { useCallback, useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useProducts } from "@/lib/hooks/useProducts";
-import { useCategoryFilters } from "@/lib/hooks/useCategoryFilters";
-import { ProductCard } from "./ProductCard";
-import {
-  FilterSidebar,
-  type ActiveFilters,
-  type SubCategory,
-} from "./FilterSidebar";
-import { SortBar } from "./SortBar";
-import { Pagination } from "./Pagination";
+import { useCollectionProducts } from "@/lib/hooks/useCollectionProducts";
+import { useCollectionFilters } from "@/lib/hooks/useCollectionFilters";
+import { ProductCard } from "@/components/products/ProductCard";
+import { FilterSidebar, type ActiveFilters } from "@/components/products/FilterSidebar";
+import { SortBar } from "@/components/products/SortBar";
+import { Pagination } from "@/components/products/Pagination";
 
-type CategoryInfo = {
+type CollectionInfo = {
   id: string;
   name: string;
   slug: string;
-  level: number;
-  parentId: string | null;
-};
-
-type Props = {
-  category: CategoryInfo;
-  subCategories?: SubCategory[];
+  coverImageUrl: string | null;
 };
 
 const PAGE_LIMIT = 24;
 
-/* ── URL serialisation helpers ───────────────────────────────────────────── */
+/* ── URL helpers ─────────────────────────────────────────────────────────── */
 
-function readFiltersFromUrl(params: URLSearchParams): ActiveFilters & {
+function readFromUrl(params: URLSearchParams): ActiveFilters & {
   page: number;
   sort: "newest" | "price_asc" | "price_desc";
 } {
-  const attrFilters: Record<string, string[]> = {};
-  params.forEach((value, key) => {
-    if (key.startsWith("attr-")) {
-      const defId = key.slice(5);
-      attrFilters[defId] = value.split(",").filter(Boolean);
-    }
-  });
-
   const sort = params.get("sort");
-
   return {
     page: Math.max(1, Number(params.get("page") ?? 1)),
     sort: (["newest", "price_asc", "price_desc"].includes(sort ?? "")
@@ -52,14 +33,10 @@ function readFiltersFromUrl(params: URLSearchParams): ActiveFilters & {
     brand: params.get("brand")?.split(",").filter(Boolean) ?? [],
     color: params.get("color")?.split(",").filter(Boolean) ?? [],
     size: params.get("size")?.split(",").filter(Boolean) ?? [],
-    subcats: params.get("subcats")?.split(",").filter(Boolean) ?? [],
-    minPrice: params.get("minPrice")
-      ? Number(params.get("minPrice"))
-      : undefined,
-    maxPrice: params.get("maxPrice")
-      ? Number(params.get("maxPrice"))
-      : undefined,
-    attrFilters,
+    subcats: [],
+    minPrice: params.get("minPrice") ? Number(params.get("minPrice")) : undefined,
+    maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : undefined,
+    attrFilters: {},
   };
 }
 
@@ -75,68 +52,63 @@ function buildUrl(
   if (filters.brand.length) params.set("brand", filters.brand.join(","));
   if (filters.color.length) params.set("color", filters.color.join(","));
   if (filters.size.length) params.set("size", filters.size.join(","));
-  if (filters.subcats.length) params.set("subcats", filters.subcats.join(","));
-  if (filters.minPrice !== undefined)
-    params.set("minPrice", String(filters.minPrice));
-  if (filters.maxPrice !== undefined)
-    params.set("maxPrice", String(filters.maxPrice));
-  for (const [defId, optIds] of Object.entries(filters.attrFilters)) {
-    if (optIds.length > 0) params.set(`attr-${defId}`, optIds.join(","));
-  }
+  if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
+  if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
   const qs = params.toString();
   return `${pathname}${qs ? `?${qs}` : ""}`;
 }
 
-/* ── ProductsClient ──────────────────────────────────────────────────────── */
+/* ── Component ───────────────────────────────────────────────────────────── */
 
-export function ProductsClient({ category, subCategories }: Props) {
+export function CollectionProductsClient({
+  collection,
+}: {
+  collection: CollectionInfo;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
 
-  const urlState = readFiltersFromUrl(searchParams);
+  const urlState = readFromUrl(searchParams);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({
     brand: urlState.brand,
     color: urlState.color,
     size: urlState.size,
-    subcats: urlState.subcats,
+    subcats: [],
     minPrice: urlState.minPrice,
     maxPrice: urlState.maxPrice,
-    attrFilters: urlState.attrFilters,
+    attrFilters: {},
   });
   const [sort, setSort] = useState(urlState.sort);
   const [page, setPage] = useState(urlState.page);
 
-  // Sync state from URL on navigation (back/forward)
   useEffect(() => {
-    const state = readFiltersFromUrl(searchParams);
+    const s = readFromUrl(searchParams);
     setActiveFilters({
-      brand: state.brand,
-      color: state.color,
-      size: state.size,
-      subcats: state.subcats,
-      minPrice: state.minPrice,
-      maxPrice: state.maxPrice,
-      attrFilters: state.attrFilters,
+      brand: s.brand,
+      color: s.color,
+      size: s.size,
+      subcats: [],
+      minPrice: s.minPrice,
+      maxPrice: s.maxPrice,
+      attrFilters: {},
     });
-    setSort(state.sort);
-    setPage(state.page);
+    setSort(s.sort);
+    setPage(s.page);
   }, [searchParams]);
 
-  const { data: filtersData } = useCategoryFilters(category.slug);
-  const { data, isLoading, isFetching } = useProducts(category.slug, {
+  const { data: filtersData } = useCollectionFilters(collection.slug);
+  const { data, isLoading, isFetching } = useCollectionProducts(collection.slug, {
     page,
     limit: PAGE_LIMIT,
     sort,
     brand: activeFilters.brand.join(",") || undefined,
     color: activeFilters.color.join(",") || undefined,
     size: activeFilters.size.join(",") || undefined,
-    subcats: activeFilters.subcats.join(",") || undefined,
     minPrice: activeFilters.minPrice,
     maxPrice: activeFilters.maxPrice,
-    attrFilters: activeFilters.attrFilters,
   });
 
   const pushUrl = useCallback(
@@ -148,9 +120,15 @@ export function ProductsClient({ category, subCategories }: Props) {
   );
 
   function handleFiltersChange(next: ActiveFilters) {
-    setActiveFilters(next);
+    // Drop any subcats/attrFilters that FilterSidebar might emit — not used for collections
+    const clean: ActiveFilters = {
+      ...next,
+      subcats: [],
+      attrFilters: {},
+    };
+    setActiveFilters(clean);
     setPage(1);
-    pushUrl(next, 1, sort);
+    pushUrl(clean, 1, sort);
   }
 
   function handleSort(newSort: "newest" | "price_asc" | "price_desc") {
@@ -173,24 +151,31 @@ export function ProductsClient({ category, subCategories }: Props) {
     activeFilters.brand.length > 0 ||
     activeFilters.color.length > 0 ||
     activeFilters.size.length > 0 ||
-    activeFilters.subcats.length > 0 ||
     activeFilters.minPrice !== undefined ||
-    activeFilters.maxPrice !== undefined ||
-    Object.values(activeFilters.attrFilters).some((v) => v.length > 0);
+    activeFilters.maxPrice !== undefined;
+
+  // Shape available filters to match FilterSidebar's expected type
+  const available = filtersData
+    ? {
+        filters: [],
+        brands: filtersData.brands,
+        colors: filtersData.colors,
+        sizes: filtersData.sizes,
+      }
+    : null;
 
   return (
     <div>
-      {/* Page heading */}
+      {/* Heading */}
       <div className="mb-4">
         <h1 className="font-inter font-medium text-2xl md:text-[38px] text-black tracking-[0.02em] leading-none uppercase">
-          {category.name}
+          {collection.name}
         </h1>
         <p className="text-sm text-text-muted mt-1 hidden md:block">
-          Descubra os melhores produtos desta categoria com os filtros abaixo.
+          Descubra todos os produtos desta coleção.
         </p>
       </div>
 
-      {/* Sort bar */}
       <SortBar
         total={total}
         page={page}
@@ -202,36 +187,33 @@ export function ProductsClient({ category, subCategories }: Props) {
         onToggleFilters={() => setFiltersOpen((o) => !o)}
       />
 
-      {/* Layout: sidebar + grid */}
       <div className="flex gap-6">
-        {/* Filter sidebar — desktop slides in, mobile overlay drawer */}
+        {/* Desktop sidebar */}
         <div
           className={`hidden lg:block overflow-hidden transition-all duration-300 ease-in-out flex-none ${
             filtersOpen ? "w-[260px] opacity-100" : "w-0 opacity-0"
           }`}
         >
-          {filtersData && (
+          {available && (
             <FilterSidebar
-              available={filtersData}
+              available={available}
               active={activeFilters}
               onChange={handleFiltersChange}
               isOpen={filtersOpen}
               onClose={() => setFiltersOpen(false)}
-              subCategories={subCategories}
             />
           )}
         </div>
 
-        {/* Mobile overlay drawer */}
-        {filtersData && (
+        {/* Mobile overlay */}
+        {available && (
           <div className="lg:hidden">
             <FilterSidebar
-              available={filtersData}
+              available={available}
               active={activeFilters}
               onChange={handleFiltersChange}
               isOpen={filtersOpen}
               onClose={() => setFiltersOpen(false)}
-              subCategories={subCategories}
             />
           </div>
         )}
@@ -246,12 +228,8 @@ export function ProductsClient({ category, subCategories }: Props) {
             </div>
           ) : products.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <p className="text-lg font-medium text-brand">
-                Nenhum produto encontrado
-              </p>
-              <p className="text-sm text-text-muted mt-1">
-                Tente ajustar os filtros ou termos de pesquisa.
-              </p>
+              <p className="text-lg font-medium text-brand">Nenhum produto encontrado</p>
+              <p className="text-sm text-text-muted mt-1">Tente ajustar os filtros.</p>
             </div>
           ) : (
             <div
@@ -269,11 +247,7 @@ export function ProductsClient({ category, subCategories }: Props) {
             </div>
           )}
 
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            onPageChange={handlePage}
-          />
+          <Pagination page={page} totalPages={totalPages} onPageChange={handlePage} />
         </div>
       </div>
     </div>

@@ -31,8 +31,8 @@ export function CartDrawer() {
 
       {/* Panel */}
       <div
-        className={`fixed top-0 right-0 z-[61] h-full w-full max-w-[540px] bg-white flex flex-col shadow-2xl transition-transform duration-300 ease-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+        className={`fixed top-0 right-0 z-[61] h-full w-full max-w-[540px] bg-white flex flex-col transition-transform duration-300 ease-out ${
+          isOpen ? "translate-x-0 shadow-2xl" : "translate-x-full"
         }`}
         aria-modal="true"
         role="dialog"

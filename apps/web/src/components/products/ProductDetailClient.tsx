@@ -120,7 +120,7 @@ function SizeDropdown({
   selectedSizeId,
   onSelect,
 }: {
-  sizes: Array<{ id: string; name: string; label?: string | null }>;
+  sizes: Array<{ id: string; name: string; label?: string | null; stockQuantity?: number }>;
   selectedSizeId: string | null;
   onSelect: (id: string | null) => void;
 }) {
@@ -172,23 +172,37 @@ function SizeDropdown({
               Sem tamanhos disponíveis
             </div>
           ) : (
-            sizes.map((size) => (
-              <button
-                key={size.id}
-                type="button"
-                onClick={() => {
-                  onSelect(size.id === selectedSizeId ? null : size.id);
-                  setOpen(false);
-                }}
-                className={`w-full text-left px-4 py-3 text-sm border-b border-border-light last:border-0 transition-colors hover:bg-surface-hover ${
-                  selectedSizeId === size.id
-                    ? "text-brand font-semibold bg-surface-hover"
-                    : "text-brand"
-                }`}
-              >
-                {size.label ?? size.name}
-              </button>
-            ))
+            sizes.map((size) => {
+              const outOfStock = size.stockQuantity === 0;
+              return (
+                <button
+                  key={size.id}
+                  type="button"
+                  disabled={outOfStock}
+                  onClick={() => {
+                    if (outOfStock) return;
+                    onSelect(size.id === selectedSizeId ? null : size.id);
+                    setOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 text-sm border-b border-border-light last:border-0 transition-colors ${
+                    outOfStock
+                      ? "text-text-muted cursor-not-allowed"
+                      : selectedSizeId === size.id
+                        ? "text-brand font-semibold bg-surface-hover"
+                        : "text-brand hover:bg-surface-hover"
+                  }`}
+                >
+                  <span className="flex items-center justify-between gap-3">
+                    <span>{size.label ?? size.name}</span>
+                    {outOfStock && (
+                      <span className="text-[11px] font-normal shrink-0">
+                        Indisponível
+                      </span>
+                    )}
+                  </span>
+                </button>
+              );
+            })
           )}
         </div>
       </div>
@@ -230,10 +244,28 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
     return map;
   }, [colors, product.media]);
 
-  /* ── State ───────────────────────────────────────────────────────────── */
-  const [selectedColorId, setSelectedColorId] = useState<string | null>(
-    colors[0]?.id ?? null,
-  );
+  /* ── Colors with all-zero stock (diagonal line + disabled thumbnail) ─── */
+  const outOfStockColors = useMemo(() => {
+    const set = new Set<string>();
+    for (const color of colors) {
+      const colorVariants = product.variants.filter(
+        (v) => v.color?.id === color.id,
+      );
+      if (
+        colorVariants.length > 0 &&
+        colorVariants.every((v) => v.stockQuantity === 0)
+      ) {
+        set.add(color.id);
+      }
+    }
+    return set;
+  }, [colors, product.variants]);
+
+  /* ── State — default to first in-stock color ─────────────────────────── */
+  const [selectedColorId, setSelectedColorId] = useState<string | null>(() => {
+    const first = colors.find((c) => !outOfStockColors.has(c.id));
+    return first?.id ?? colors[0]?.id ?? null;
+  });
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
 
   /* ── Media for selected color ────────────────────────────────────────── */
@@ -246,7 +278,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
     return sorted.filter((m) => m.colorId === null);
   }, [selectedColorId, product.media]);
 
-  /* ── Sizes for selected color ────────────────────────────────────────── */
+  /* ── Sizes for selected color (with stock info) ──────────────────────── */
   const availableSizes = useMemo(() => {
     if (selectedColorId) {
       const seen = new Set<string>();
@@ -257,9 +289,10 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
           seen.add(v.size!.id);
           return true;
         })
-        .map((v) => v.size!);
+        .map((v) => ({ ...v.size!, stockQuantity: v.stockQuantity }));
     }
-    return product.sizes.map((s) => s.size);
+    // Fallback when no color is resolved — no stock info available
+    return product.sizes.map((s) => ({ ...s.size, stockQuantity: undefined }));
   }, [selectedColorId, product.variants, product.sizes]);
 
   /* ── Price resolution ────────────────────────────────────────────────── */
@@ -462,18 +495,23 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
                 {colors.map((color) => {
                   const thumb = colorThumbnails[color.id];
                   const isSelected = selectedColorId === color.id;
+                  const isOos = outOfStockColors.has(color.id);
                   return (
                     <button
                       key={color.id}
                       type="button"
+                      disabled={isOos}
                       onClick={() => {
+                        if (isOos) return;
                         setSelectedColorId(color.id);
                         setSelectedSizeId(null);
                       }}
-                      className="flex flex-col items-center gap-1.5 shrink-0"
+                      className={`flex flex-col items-center gap-1.5 shrink-0 ${isOos ? "cursor-not-allowed" : ""}`}
                     >
                       <span
-                        className={`block w-[72px] h-[72px] rounded overflow-hidden border-2 transition-all ${
+                        className={`relative block w-[72px] h-[72px] rounded overflow-hidden border-2 transition-all ${
+                          isOos ? "opacity-40" : ""
+                        } ${
                           isSelected
                             ? "border ring-brand/30"
                             : "border-transparent hover:border-brand/40"
@@ -490,6 +528,24 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
                             className="block w-full h-full"
                             style={{ backgroundColor: color.hexCode }}
                           />
+                        )}
+                        {isOos && (
+                          <span className="absolute inset-0 pointer-events-none">
+                            <svg
+                              width="100%"
+                              height="100%"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <line
+                                x1="0"
+                                y1="100%"
+                                x2="100%"
+                                y2="0"
+                                stroke="rgba(0,0,0,0.55)"
+                                strokeWidth="1.5"
+                              />
+                            </svg>
+                          </span>
                         )}
                       </span>
                       {isSelected && (

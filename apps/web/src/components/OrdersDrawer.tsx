@@ -253,8 +253,8 @@ export function OrdersDrawer() {
         role="dialog"
         aria-label="Compras realizadas"
         aria-modal="true"
-        className={`fixed top-0 right-0 z-[61] h-full w-full max-w-[583px] bg-white flex flex-col shadow-2xl transition-transform duration-300 ease-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+        className={`fixed top-0 right-0 z-[61] h-full w-full max-w-[583px] bg-white flex flex-col transition-transform duration-300 ease-out ${
+          isOpen ? "translate-x-0 shadow-2xl" : "translate-x-full"
         }`}
       >
         {/* Header */}

@@ -40,6 +40,26 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(shop)/categorias/[slug]/produtos/page.js"
+    ],
+    "/(shop)/marcas/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/marcas/page.js"
+    ],
+    "/(shop)/marcas/[slug]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/marcas/[slug]/page.js"
+    ],
+    "/(shop)/colecoes/[slug]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/colecoes/[slug]/page.js"
+    ],
+    "/(shop)/produtos/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(shop)/produtos/page.js"
     ]
   }
 }

@@ -12,6 +12,18 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────
 
+interface MostSearchedCategory {
+  id: string;
+  position: number;
+  category: {
+    id: string;
+    name: string;
+    slug: string;
+    level: number;
+    parent: { slug: string } | null;
+  };
+}
+
 interface SearchDocument {
   id: string;
   name: string;
@@ -36,7 +48,7 @@ interface SearchResponse {
   hits: Array<{ document: SearchDocument }>;
 }
 
-// ── Adapter ────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────
 
 function toCardItem(doc: SearchDocument): ProductCardItem {
   return {
@@ -53,7 +65,22 @@ function toCardItem(doc: SearchDocument): ProductCardItem {
   };
 }
 
+function primaryImageUrl(doc: SearchDocument): string {
+  const primary = doc.media.find((m) => m.isPrimary) ?? doc.media[0];
+  return primary?.url ?? "";
+}
+
+function formatPrice(value: number): string {
+  return `MZN ${Math.round(value).toLocaleString("pt-PT")}`;
+}
+
 // ── Component ──────────────────────────────────────────────────────
+
+function categoryUrl(cat: MostSearchedCategory["category"]): string {
+  return cat.level <= 1
+    ? `/categorias/${cat.slug}`
+    : `/categorias/${cat.slug}/produtos`;
+}
 
 export function SearchOverlay() {
   const isOpen = useSearchOverlay();
@@ -62,6 +89,14 @@ export function SearchOverlay() {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchDocument[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mostSearched, setMostSearched] = useState<MostSearchedCategory[]>([]);
+
+  // Fetch most-searched once on mount
+  useEffect(() => {
+    apiFetch<MostSearchedCategory[]>("/search/most-searched")
+      .then(setMostSearched)
+      .catch(() => {});
+  }, []);
 
   // Auto-focus and reset on open/close
   useEffect(() => {
@@ -151,15 +186,65 @@ export function SearchOverlay() {
             </div>
           )}
 
-          {/* Results grid — exactly as ProductCard */}
+          {/* Results — vertical list on mobile, product card grid on sm+ */}
           {hasResults && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-[5px]">
-              {hits!.map((doc) => (
-                <div key={doc.id} onClick={searchStore.close}>
-                  <ProductCard product={toCardItem(doc)} compact />
-                </div>
-              ))}
-            </div>
+            <>
+              {/* Mobile list */}
+              <div className="flex flex-col sm:hidden">
+                {hits!.map((doc) => (
+                  <Link
+                    key={doc.id}
+                    href={`/produtos/${doc.slug}`}
+                    onClick={searchStore.close}
+                    className="flex items-center gap-4 py-3 border-b border-gray-100 last:border-0"
+                  >
+                    <div className="relative w-[55px] h-[55px] shrink-0 rounded-[5px] overflow-hidden bg-muted-bg">
+                      {primaryImageUrl(doc) && (
+                        <img
+                          src={primaryImageUrl(doc)}
+                          alt={doc.name}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-[7px] flex-1 min-w-0">
+                      <p className="text-[15px] font-normal tracking-[0.3px] text-brand truncate">
+                        {doc.name}
+                      </p>
+                      <p className="text-[11px] font-bold tracking-[0.22px] text-brand">
+                        {doc.brandName}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[13px] font-bold tracking-[0.26px] text-brand">
+                          {formatPrice(doc.basePrice)}
+                        </p>
+                        {doc.colors.length > 0 && (
+                          <p className="text-[10px] font-normal tracking-[0.2px] text-brand">
+                            +{doc.colors.length} cores
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Desktop grid */}
+              <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-x-1.25 gap-y-6">
+                {hits!.map((doc) => (
+                  <div
+                    key={doc.id}
+                    onClick={(e) => {
+                      if (!(e.target as HTMLElement).closest("button")) {
+                        searchStore.close();
+                      }
+                    }}
+                  >
+                    <ProductCard product={toCardItem(doc)} compact />
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           {/* No results state */}
@@ -181,10 +266,28 @@ export function SearchOverlay() {
             </div>
           )}
 
-          {/* Idle state — no query yet */}
+          {/* Idle state — no query yet, show most-searched categories */}
           {!hasQuery && !loading && (
-            <div className="py-16 text-center text-sm text-text-muted">
-              Escreva para pesquisar produtos
+            <div className="flex flex-col gap-3">
+              {mostSearched.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+                    Mais procurados
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {mostSearched.map(({ id, category }) => (
+                      <Link
+                        key={id}
+                        href={categoryUrl(category)}
+                        onClick={searchStore.close}
+                        className="border border-black rounded-[17px] px-5 py-1.5 text-[13px] font-medium text-brand bg-[#fafafa] hover:bg-gray-100 transition-colors"
+                      >
+                        {category.name}
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
