@@ -13,6 +13,8 @@ const prisma = new PrismaClient();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TEST_DATA_DIR = path.resolve(__dirname, "../../../test_data");
+// Images are served by Next.js from its public folder at /test_data/<filename>
+const WEB_PUBLIC_TEST_DATA = path.resolve(__dirname, "../../web/public/test_data");
 
 const IMAGE_EXTENSIONS = new Set([
   ".jpg",
@@ -165,6 +167,23 @@ async function ensureSubCategory(input: {
   });
 }
 
+async function copyImagesToPublic(imageFiles: string[]): Promise<void> {
+  await fs.mkdir(WEB_PUBLIC_TEST_DATA, { recursive: true });
+  let copied = 0;
+  for (const file of imageFiles) {
+    try {
+      await fs.copyFile(
+        path.join(TEST_DATA_DIR, file),
+        path.join(WEB_PUBLIC_TEST_DATA, file),
+      );
+      copied++;
+    } catch {
+      // skip — file may already exist or be unreadable
+    }
+  }
+  console.log(`📁 Copied ${copied} image(s) → apps/web/public/test_data/`);
+}
+
 async function main() {
   console.log("🌱 Seeding products from test_data...");
 
@@ -176,6 +195,9 @@ async function main() {
   if (imageFiles.length === 0) {
     throw new Error(`No image files found in ${TEST_DATA_DIR}`);
   }
+
+  // Make images available to the Next.js web app before writing DB records
+  await copyImagesToPublic(imageFiles);
 
   const grouped = new Map<string, string[]>();
   for (const file of imageFiles) {
@@ -392,13 +414,24 @@ async function main() {
       ) {
         const colorId = uniqueColorIds[variantIndex]!;
         const sizeId = sizePool[variantIndex % sizePool.length]!.id;
+        const sku = `SEED-${slugify(product.slug).toUpperCase()}-${variantIndex + 1}`;
 
-        await tx.productVariant.create({
-          data: {
+        // Upsert on SKU to handle orphaned variants from previous partial runs
+        await tx.productVariant.upsert({
+          where: { sku },
+          create: {
             productId: product.id,
             colorId,
             sizeId,
-            sku: `SEED-${slugify(product.slug).toUpperCase()}-${variantIndex + 1}`,
+            sku,
+            stockQuantity: 10 + variantIndex * 3,
+            price: basePrice,
+            position: variantIndex,
+          },
+          update: {
+            productId: product.id,
+            colorId,
+            sizeId,
             stockQuantity: 10 + variantIndex * 3,
             price: basePrice,
             position: variantIndex,

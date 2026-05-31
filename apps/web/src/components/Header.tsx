@@ -18,6 +18,7 @@ import { useFavorites, favoritesStore } from "@/lib/stores/favoritesStore";
 import { useAuth } from "@/lib/auth";
 import { ordersStore } from "@/lib/stores/ordersStore";
 import { searchStore } from "@/lib/stores/searchStore";
+import { loginStore } from "@/lib/stores/loginStore";
 
 /* ─── Icon sizes ──────────────────────────────────────────────── */
 const iconCls = "w-[22px] h-[22px] stroke-[1.5]";
@@ -209,9 +210,9 @@ export default function Header() {
                   </IconBtnAction>
                 </>
               ) : (
-                <IconBtn href="/login" label="Entrar">
+                <IconBtnAction onClick={loginStore.open} label="Entrar">
                   <User className={iconCls} />
-                </IconBtn>
+                </IconBtnAction>
               )}
 
               {/* Separator */}
@@ -350,14 +351,14 @@ export default function Header() {
                     </button>
                   </>
                 ) : (
-                  <Link
-                    href="/login"
-                    onClick={() => setMobileOpen(false)}
+                  <button
+                    type="button"
+                    onClick={() => { setMobileOpen(false); loginStore.open(); }}
                     className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
                   >
                     <User className="w-4 h-4" />
                     Entrar / Criar conta
-                  </Link>
+                  </button>
                 )}
                 <button
                   type="button"

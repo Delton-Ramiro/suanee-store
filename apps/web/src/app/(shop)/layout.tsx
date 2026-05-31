@@ -4,6 +4,7 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { FavoritesDrawer } from "@/components/FavoritesDrawer";
 import { OrdersDrawer } from "@/components/OrdersDrawer";
 import { SearchOverlay } from "@/components/SearchOverlay";
+import { LoginModal } from "@/components/LoginModal";
 
 export default function ShopLayout({
   children,
@@ -18,6 +19,7 @@ export default function ShopLayout({
       </main>
       <Footer />
       <SearchOverlay />
+      <LoginModal />
       <CartDrawer />
       <FavoritesDrawer />
       <OrdersDrawer />
