@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
 import { FavoritesDrawer } from "@/components/FavoritesDrawer";
 import { OrdersDrawer } from "@/components/OrdersDrawer";
+import { SearchOverlay } from "@/components/SearchOverlay";
 
 export default function ShopLayout({
   children,
@@ -12,11 +13,11 @@ export default function ShopLayout({
   return (
     <>
       <Header />
-      {/* pt-[98px] = header height so content is never behind the fixed nav */}
-      <main className="min-h-screen pt-[var(--spacing-nav)] container-web">
+      <main className="min-h-screen pt-nav container-web">
         {children}
       </main>
       <Footer />
+      <SearchOverlay />
       <CartDrawer />
       <FavoritesDrawer />
       <OrdersDrawer />

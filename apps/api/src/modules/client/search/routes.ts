@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../../lib/prisma.js";
 
@@ -108,150 +108,63 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
         ...(q.inStock ? { stockStatus: "in_stock" as const } : {}),
       };
 
-      // Copies without individual facet filters (for accurate facet counts)
-      const whereForBrandFacet = { ...baseWhere } as Record<string, unknown>;
-      delete whereForBrandFacet["brandId"];
-      const whereForGenderFacet = { ...baseWhere } as Record<string, unknown>;
-      delete whereForGenderFacet["genderScope"];
-      const whereForStockFacet = { ...baseWhere } as Record<string, unknown>;
-      delete whereForStockFacet["stockStatus"];
-
       const orderBy = SORT_MAP[q.sort] ?? SORT_MAP.newest;
       const skip = (q.page - 1) * q.perPage;
 
-      const [
-        found,
-        products,
-        brandFacets,
-        categoryFacets,
-        colorFacets,
-        genderFacets,
-        stockFacets,
-      ] = await Promise.all([
-        prisma.product.count({ where: baseWhere }),
-
-        prisma.product.findMany({
-          where: baseWhere,
-          orderBy,
-          skip,
-          take: q.perPage,
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            basePrice: true,
-            hasDiscount: true,
-            discountPrice: true,
-            stockStatus: true,
-            genderScope: true,
-            brand: { select: { id: true, name: true } },
-            media: {
-              where: { isPrimary: true },
-              take: 1,
-              select: { url: true, mediaType: true },
-            },
+      const products = await prisma.product.findMany({
+        where: baseWhere,
+        orderBy,
+        skip,
+        take: q.perPage,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          basePrice: true,
+          hasDiscount: true,
+          discountPrice: true,
+          isIndicativePrice: true,
+          brand: { select: { id: true, name: true, slug: true } },
+          media: {
+            where: { colorId: null, isDeleted: false } as never,
+            take: 6,
+            orderBy: { position: "asc" as const },
+            select: { id: true, url: true, mediaType: true, isPrimary: true },
           },
-        }),
+          variants: {
+            select: {
+              colorId: true,
+              color: { select: { id: true, name: true, hexCode: true } },
+            },
+            take: 10,
+          },
+        },
+      });
 
-        prisma.product.groupBy({
-          by: ["brandId"],
-          where: whereForBrandFacet as Parameters<
-            typeof prisma.product.groupBy
-          >[0]["where"],
-          _count: { _all: true },
-          orderBy: { _count: { brandId: "desc" } },
-          take: 50,
-        }),
-
-        prisma.productCategory.groupBy({
-          by: ["categoryId"],
-          where: { product: baseWhere },
-          _count: { _all: true },
-          orderBy: { _count: { categoryId: "desc" } },
-          take: 50,
-        }),
-
-        prisma.productVariant.groupBy({
-          by: ["colorId"],
-          where: { product: baseWhere },
-          _count: { _all: true },
-          orderBy: { _count: { colorId: "desc" } },
-          take: 50,
-        }),
-
-        prisma.product.groupBy({
-          by: ["genderScope"],
-          where: whereForGenderFacet as Parameters<
-            typeof prisma.product.groupBy
-          >[0]["where"],
-          _count: { _all: true },
-        }),
-
-        prisma.product.groupBy({
-          by: ["stockStatus"],
-          where: whereForStockFacet as Parameters<
-            typeof prisma.product.groupBy
-          >[0]["where"],
-          _count: { _all: true },
-        }),
-      ]);
-
-      return reply.send({
-        found,
-        page: q.page,
-        perPage: q.perPage,
-        hits: products.map((p) => ({
+      const hits = products.map((p) => {
+        const seen = new Set<string>();
+        const colors = p.variants
+          .filter((v) => v.colorId && v.color && !seen.has(v.colorId) && seen.add(v.colorId))
+          .map((v) => v.color!);
+        return {
           document: {
             id: p.id,
             name: p.name,
             slug: p.slug,
             basePrice: Number(p.basePrice),
+            isIndicativePrice: p.isIndicativePrice,
             hasDiscount: p.hasDiscount,
             discountPrice: p.discountPrice ? Number(p.discountPrice) : null,
-            stockStatus: p.stockStatus,
-            genderScope: p.genderScope,
             brandId: p.brand.id,
             brandName: p.brand.name,
-            primaryImage: p.media[0]?.url ?? null,
+            brandSlug: p.brand.slug,
+            media: p.media,
+            colors,
           },
-        })),
-        facet_counts: [
-          {
-            field_name: "brandId",
-            counts: brandFacets.map((f) => ({
-              value: f.brandId,
-              count: f._count._all,
-            })),
-          },
-          {
-            field_name: "categoryIds",
-            counts: categoryFacets.map((f) => ({
-              value: f.categoryId,
-              count: f._count._all,
-            })),
-          },
-          {
-            field_name: "colorIds",
-            counts: colorFacets.map((f) => ({
-              value: f.colorId,
-              count: f._count._all,
-            })),
-          },
-          {
-            field_name: "genderScope",
-            counts: genderFacets
-              .filter((f) => f.genderScope !== null)
-              .map((f) => ({ value: f.genderScope!, count: f._count._all })),
-          },
-          {
-            field_name: "stockStatus",
-            counts: stockFacets.map((f) => ({
-              value: f.stockStatus,
-              count: f._count._all,
-            })),
-          },
-        ],
+        };
       });
+
+      return reply.send({ hits });
     },
   });
 

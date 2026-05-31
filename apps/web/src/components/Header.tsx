@@ -17,6 +17,7 @@ import { useCart, cartStore } from "@/lib/stores/cartStore";
 import { useFavorites, favoritesStore } from "@/lib/stores/favoritesStore";
 import { useAuth } from "@/lib/auth";
 import { ordersStore } from "@/lib/stores/ordersStore";
+import { searchStore } from "@/lib/stores/searchStore";
 
 /* ─── Icon sizes ──────────────────────────────────────────────── */
 const iconCls = "w-[22px] h-[22px] stroke-[1.5]";
@@ -173,9 +174,9 @@ export default function Header() {
 
             {/* Bottom row — action icons */}
             <div className="flex items-center gap-4">
-              <IconBtn href="/pesquisa" label="Pesquisar">
+              <IconBtnAction onClick={searchStore.open} label="Pesquisar">
                 <Search className={iconCls} />
-              </IconBtn>
+              </IconBtnAction>
 
               <IconBtnAction
                 onClick={favoritesStore.open}
@@ -187,7 +188,10 @@ export default function Header() {
 
               {user ? (
                 <>
-                  <IconBtnAction onClick={ordersStore.open} label="As minhas compras">
+                  <IconBtnAction
+                    onClick={ordersStore.open}
+                    label="As minhas compras"
+                  >
                     {user.avatarUrl ? (
                       <img
                         src={user.avatarUrl}
@@ -225,9 +229,9 @@ export default function Header() {
 
           {/* Mobile — icons + hamburger */}
           <div className="flex md:hidden ml-auto items-center gap-3">
-            <IconBtn href="/pesquisa" label="Pesquisar">
+            <IconBtnAction onClick={searchStore.open} label="Pesquisar">
               <Search className="w-[20px] h-[20px] stroke-[1.5]" />
-            </IconBtn>
+            </IconBtnAction>
             <IconBtnAction
               onClick={cartStore.open}
               label="Carrinho"
