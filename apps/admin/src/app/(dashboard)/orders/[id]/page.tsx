@@ -752,14 +752,20 @@ export default function OrderDetailPage() {
     cancellationReason?: string;
   }) {
     if (!pendingStatus) return;
-    await apiFetch(`/admin/orders/${id}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: pendingStatus, ...extra }),
-    });
-    toast.success("Estado atualizado");
-    setShowModal(false);
-    setPendingStatus("");
-    invalidate();
+    try {
+      await apiFetch(`/admin/orders/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: pendingStatus, ...extra }),
+      });
+      toast.success("Estado atualizado");
+      setShowModal(false);
+      setPendingStatus("");
+      invalidate();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao atualizar estado",
+      );
+    }
   }
 
   function handleApply() {
