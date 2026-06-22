@@ -120,7 +120,12 @@ function SizeDropdown({
   selectedSizeId,
   onSelect,
 }: {
-  sizes: Array<{ id: string; name: string; label?: string | null; stockQuantity?: number }>;
+  sizes: Array<{
+    id: string;
+    name: string;
+    label?: string | null;
+    stockQuantity?: number;
+  }>;
   selectedSizeId: string | null;
   onSelect: (id: string | null) => void;
 }) {

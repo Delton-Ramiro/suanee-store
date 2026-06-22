@@ -353,7 +353,10 @@ export default function Header() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => { setMobileOpen(false); loginStore.open(); }}
+                    onClick={() => {
+                      setMobileOpen(false);
+                      loginStore.open();
+                    }}
                     className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
                   >
                     <User className="w-4 h-4" />
