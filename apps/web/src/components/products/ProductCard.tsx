@@ -127,15 +127,15 @@ export function ProductCard({
         {/* Tags — flush to top-left corner, stacked vertically */}
         <div className="absolute top-0 left-0 flex flex-col pointer-events-none">
           {product.isIndicativePrice && (
-            <span className="text-[10px] font-normal text-primary bg-white px-[16px] py-[2px] leading-tight rounded-tl-[5px] tracking-[0.2px]">
+            <span className="text-[10px] font-normal text-primary bg-transparent px-[16px] py-2 leading-tight rounded-tl-[5px] tracking-[0.2px] backdrop-blur-[2px]">
               Preço indicativo
             </span>
           )}
-          {product.hasDiscount && discountPrice !== null && (
-            <span className="text-[10px] font-bold text-white bg-brand px-3 py-[2px] leading-tight tracking-[0.2px]">
+          {/* {product.hasDiscount && discountPrice !== null && (
+            <span className="text-[10px] font-bold text-white bg-brand/80 px-3 py-[2px] leading-tight tracking-[0.2px] backdrop-blur-[2px]">
               {discountPercent(basePrice, discountPrice)}% Off
             </span>
-          )}
+          )} */}
         </div>
 
         {/* Heart — top right */}
