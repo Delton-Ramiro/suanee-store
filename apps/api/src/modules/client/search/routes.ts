@@ -10,9 +10,14 @@ const SearchQuery = z.object({
   sort: z
     .enum(["newest", "price_asc", "price_desc", "popular"])
     .default("newest"),
+  /** Legacy single-brand filter — kept for backward compat */
   brandId: z.string().optional(),
+  /** Comma-separated brand IDs — takes priority over brandId */
+  brandIds: z.string().optional(),
   categoryId: z.string().optional(),
   colorIds: z.string().optional(),
+  /** Comma-separated size IDs */
+  sizeIds: z.string().optional(),
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
   gender: z.enum(["men", "women", "unisex", "kids"]).optional(),
@@ -66,9 +71,33 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
     },
     handler: async (req, reply) => {
       const q = SearchQuery.parse(req.query);
+
       const colorIdList = q.colorIds
         ? q.colorIds.split(",").filter(Boolean)
         : undefined;
+
+      const brandIdList = q.brandIds
+        ? q.brandIds.split(",").filter(Boolean)
+        : q.brandId
+          ? [q.brandId]
+          : [];
+
+      const sizeIdList = q.sizeIds
+        ? q.sizeIds.split(",").filter(Boolean)
+        : [];
+
+      // Parse attr-{attrDefId}=optId1,optId2 params from raw query
+      const attrFilters: { attrDefId: string; optionIds: string[] }[] = [];
+      for (const [key, value] of Object.entries(
+        req.query as Record<string, unknown>,
+      )) {
+        if (key.startsWith("attr-") && typeof value === "string") {
+          const attrDefId = key.slice(5);
+          const optionIds = value.split(",").filter(Boolean);
+          if (attrDefId && optionIds.length > 0)
+            attrFilters.push({ attrDefId, optionIds });
+        }
+      }
 
       // Resolve brand IDs whose name matches the search term
       const brandIdsFromText = (
@@ -89,12 +118,15 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
             ? [{ brandId: { in: brandIdsFromText } }]
             : []),
         ],
-        ...(q.brandId ? { brandId: q.brandId } : {}),
+        ...(brandIdList.length ? { brandId: { in: brandIdList } } : {}),
         ...(q.categoryId
           ? { categories: { some: { categoryId: q.categoryId } } }
           : {}),
         ...(colorIdList?.length
           ? { variants: { some: { colorId: { in: colorIdList } } } }
+          : {}),
+        ...(sizeIdList.length
+          ? { sizes: { some: { sizeId: { in: sizeIdList } } } }
           : {}),
         ...(q.minPrice !== undefined || q.maxPrice !== undefined
           ? {
@@ -106,45 +138,66 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
           : {}),
         ...(q.gender ? { genderScope: q.gender } : {}),
         ...(q.inStock ? { stockStatus: "in_stock" as const } : {}),
+        ...(attrFilters.length
+          ? {
+              AND: attrFilters.map(({ attrDefId, optionIds }) => ({
+                attributes: {
+                  some: {
+                    attributeDefinitionId: attrDefId,
+                    attributeOptionId: { in: optionIds },
+                  },
+                },
+              })),
+            }
+          : {}),
       };
 
       const orderBy = SORT_MAP[q.sort] ?? SORT_MAP.newest;
       const skip = (q.page - 1) * q.perPage;
 
-      const products = await prisma.product.findMany({
-        where: baseWhere,
-        orderBy,
-        skip,
-        take: q.perPage,
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          basePrice: true,
-          hasDiscount: true,
-          discountPrice: true,
-          isIndicativePrice: true,
-          brand: { select: { id: true, name: true, slug: true } },
-          media: {
-            where: { colorId: null, isDeleted: false } as never,
-            take: 6,
-            orderBy: { position: "asc" as const },
-            select: { id: true, url: true, mediaType: true, isPrimary: true },
-          },
-          variants: {
-            select: {
-              colorId: true,
-              color: { select: { id: true, name: true, hexCode: true } },
+      const [products, total] = await Promise.all([
+        prisma.product.findMany({
+          where: baseWhere,
+          orderBy,
+          skip,
+          take: q.perPage,
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            basePrice: true,
+            hasDiscount: true,
+            discountPrice: true,
+            isIndicativePrice: true,
+            brand: { select: { id: true, name: true, slug: true } },
+            media: {
+              where: { colorId: null, isDeleted: false } as never,
+              take: 6,
+              orderBy: { position: "asc" as const },
+              select: { id: true, url: true, mediaType: true, isPrimary: true },
             },
-            take: 10,
+            variants: {
+              select: {
+                colorId: true,
+                color: { select: { id: true, name: true, hexCode: true } },
+              },
+              take: 10,
+            },
           },
-        },
-      });
+        }),
+        prisma.product.count({ where: baseWhere }),
+      ]);
 
       const hits = products.map((p) => {
         const seen = new Set<string>();
         const colors = p.variants
-          .filter((v) => v.colorId && v.color && !seen.has(v.colorId) && seen.add(v.colorId))
+          .filter(
+            (v) =>
+              v.colorId &&
+              v.color &&
+              !seen.has(v.colorId) &&
+              seen.add(v.colorId),
+          )
           .map((v) => v.color!);
         return {
           document: {
@@ -164,7 +217,13 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
         };
       });
 
-      return reply.send({ hits });
+      return reply.send({
+        hits,
+        total,
+        page: q.page,
+        perPage: q.perPage,
+        totalPages: Math.ceil(total / q.perPage),
+      });
     },
   });
 

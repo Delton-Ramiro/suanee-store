@@ -406,6 +406,28 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
     },
   });
 
+  // GET /catalog/colors — full color list
+  fastify.get("/colors", {
+    schema: {
+      tags: ["Catalog"],
+      description: "Returns all colors ordered by name.",
+      response: {
+        200: {
+          description: "Colors list",
+          type: "array",
+          items: { type: "object" },
+        },
+      },
+    },
+    handler: async (_req, reply) => {
+      const colors = await prisma.color.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, hexCode: true, slug: true },
+      });
+      return reply.send(colors);
+    },
+  });
+
   // GET /catalog/brands
   fastify.get("/brands", {
     schema: {
