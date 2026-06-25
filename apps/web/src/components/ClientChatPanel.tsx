@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Paperclip, Send, X, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Paperclip, Send, X, FileText, Loader2, ShoppingBag, Minus, Plus } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import { useChat, chatStore } from "@/lib/stores/chatStore";
+import { useCart, cartStore } from "@/lib/stores/cartStore";
 import { useAuth } from "@/lib/auth";
-import { apiFetch, authFetch } from "@/lib/api";
+import { authFetch } from "@/lib/api";
+import { DrawerItemRow } from "./DrawerPanel";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -141,9 +143,24 @@ function AttachmentPreview({
 
 // ── Main component ─────────────────────────────────────────────────────────
 
+function fmtPrice(v: number) {
+  return `MZN ${Math.round(v).toLocaleString("pt-PT")}`;
+}
+
 export function ClientChatPanel() {
   const { isOpen } = useChat();
   const { user } = useAuth();
+  const { items: cartItems } = useCart();
+
+  const [view, setView] = useState<"chat" | "cart">("chat");
+
+  const cartTotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
+
+  // Reset to chat view when panel closes
+  useEffect(() => {
+    if (!isOpen) setView("chat");
+  }, [isOpen]);
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -391,143 +408,247 @@ export function ClientChatPanel() {
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border-light shrink-0">
           <button
             type="button"
-            onClick={chatStore.close}
+            onClick={view === "cart" ? () => setView("chat") : chatStore.close}
             className="text-brand/50 hover:text-brand transition-colors"
-            aria-label="Fechar chat"
+            aria-label={view === "cart" ? "Voltar ao chat" : "Fechar chat"}
           >
             <ArrowLeft size={20} strokeWidth={1.5} />
           </button>
-          <div className="flex flex-col">
-            <span className="text-sm font-bold text-brand">SUANEE</span>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-success shrink-0" />
-              <span className="text-xs text-text-muted">Sempre activo</span>
-            </div>
-          </div>
+
+          {view === "chat" ? (
+            <>
+              <div className="flex flex-col flex-1">
+                <span className="text-sm font-bold text-brand">SUANEE</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-success shrink-0" />
+                  <span className="text-xs text-text-muted">Sempre activo</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setView("cart")}
+                aria-label="Ver carrinho"
+                className="relative text-brand/50 hover:text-brand transition-colors"
+              >
+                <ShoppingBag size={20} strokeWidth={1.5} />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                )}
+              </button>
+            </>
+          ) : (
+            <span className="text-sm font-bold text-brand flex-1">
+              Carrinho
+            </span>
+          )}
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-          {initialLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 size={24} className="animate-spin text-brand/30" />
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center py-12">
-              <p className="text-sm text-text-muted">
-                Inicie a conversa enviando uma mensagem.
-              </p>
-            </div>
-          ) : (
-            messages.map((msg) => {
-              const isClient = msg.senderType === "user";
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex items-end gap-2 ${isClient ? "flex-row-reverse" : "flex-row"}`}
-                >
-                  {!isClient && (
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
-                      S
-                    </div>
-                  )}
-                  <div
-                    className={`flex flex-col gap-1 max-w-[75%] ${isClient ? "items-end" : "items-start"}`}
-                  >
+        {/* ── Chat view ─────────────────────────────────────────────────────── */}
+        {view === "chat" && (
+          <>
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+              {initialLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 size={24} className="animate-spin text-brand/30" />
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center py-12">
+                  <p className="text-sm text-text-muted">
+                    Inicie a conversa enviando uma mensagem.
+                  </p>
+                </div>
+              ) : (
+                messages.map((msg) => {
+                  const isClient = msg.senderType === "user";
+                  return (
                     <div
-                      className={`px-4 py-3 text-sm leading-relaxed ${
-                        isClient
-                          ? "bg-primary text-white rounded-bl-3xl rounded-tl-3xl rounded-tr-3xl"
-                          : "bg-[#f2f4f5] text-[#303437] rounded-br-3xl rounded-tr-3xl rounded-bl-3xl"
-                      }`}
+                      key={msg.id}
+                      className={`flex items-end gap-2 ${isClient ? "flex-row-reverse" : "flex-row"}`}
                     >
-                      {msg.mediaUrl && msg.mediaType && (
-                        <div className={msg.content ? "mb-2" : ""}>
-                          <MediaBubble
-                            mediaUrl={msg.mediaUrl}
-                            mediaType={msg.mediaType}
-                          />
+                      {!isClient && (
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+                          S
                         </div>
                       )}
-                      {msg.content && <p>{msg.content}</p>}
+                      <div
+                        className={`flex flex-col gap-1 max-w-[75%] ${isClient ? "items-end" : "items-start"}`}
+                      >
+                        <div
+                          className={`px-4 py-3 text-sm leading-relaxed ${
+                            isClient
+                              ? "bg-primary text-white rounded-bl-3xl rounded-tl-3xl rounded-tr-3xl"
+                              : "bg-[#f2f4f5] text-[#303437] rounded-br-3xl rounded-tr-3xl rounded-bl-3xl"
+                          }`}
+                        >
+                          {msg.mediaUrl && msg.mediaType && (
+                            <div className={msg.content ? "mb-2" : ""}>
+                              <MediaBubble
+                                mediaUrl={msg.mediaUrl}
+                                mediaType={msg.mediaType}
+                              />
+                            </div>
+                          )}
+                          {msg.content && <p>{msg.content}</p>}
+                        </div>
+                        <span className="text-[10px] text-text-muted px-1">
+                          {fmtTime(msg.createdAt)}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-[10px] text-text-muted px-1">
-                      {fmtTime(msg.createdAt)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Compose */}
-        <div className="shrink-0 border-t border-border-light px-4 py-3">
-          {fileError && (
-            <p className="text-xs text-danger mb-2">{fileError}</p>
-          )}
-          {attachment && (
-            <AttachmentPreview
-              attachment={attachment}
-              onRemove={() => {
-                if (attachment.preview)
-                  URL.revokeObjectURL(attachment.preview);
-                setAttachment(null);
-                setFileError(null);
-              }}
-            />
-          )}
-          {uploadProgress !== null && (
-            <div className="h-1 bg-border rounded-full mb-2 overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-200"
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-          )}
-          <div className="flex items-end gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={!!attachment || sending}
-              className="text-brand/40 hover:text-brand transition-colors disabled:opacity-30 shrink-0 mb-1"
-              aria-label="Anexar ficheiro"
-            >
-              <Paperclip size={20} />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*,.pdf,application/pdf"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <div className="flex-1 bg-bg rounded-3xl px-4 py-2.5 min-h-[42px] flex items-end">
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Digite a sua mensagem..."
-                rows={1}
-                className="flex-1 bg-transparent text-sm text-brand placeholder:text-brand/40 outline-none resize-none max-h-28 leading-relaxed"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={(!text.trim() && !attachment) || sending}
-              className="bg-primary text-white w-9 h-9 rounded-full flex items-center justify-center shrink-0 hover:bg-brand transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Enviar mensagem"
-            >
-              {sending ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Send size={16} />
+                  );
+                })
               )}
-            </button>
-          </div>
-        </div>
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Compose */}
+            <div className="shrink-0 border-t border-border-light px-4 py-3">
+              {fileError && (
+                <p className="text-xs text-danger mb-2">{fileError}</p>
+              )}
+              {attachment && (
+                <AttachmentPreview
+                  attachment={attachment}
+                  onRemove={() => {
+                    if (attachment.preview)
+                      URL.revokeObjectURL(attachment.preview);
+                    setAttachment(null);
+                    setFileError(null);
+                  }}
+                />
+              )}
+              {uploadProgress !== null && (
+                <div className="h-1 bg-border rounded-full mb-2 overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-200"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!!attachment || sending}
+                  className="text-brand/40 hover:text-brand transition-colors disabled:opacity-30 shrink-0 mb-1"
+                  aria-label="Anexar ficheiro"
+                >
+                  <Paperclip size={20} />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,.pdf,application/pdf"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <div className="flex-1 bg-bg rounded-3xl px-4 py-2.5 min-h-[42px] flex items-end">
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Digite a sua mensagem..."
+                    rows={1}
+                    className="flex-1 bg-transparent text-sm text-brand placeholder:text-brand/40 outline-none resize-none max-h-28 leading-relaxed"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={(!text.trim() && !attachment) || sending}
+                  className="bg-primary text-white w-9 h-9 rounded-full flex items-center justify-center shrink-0 hover:bg-brand transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Enviar mensagem"
+                >
+                  {sending ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Send size={16} />
+                  )}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── Cart view ─────────────────────────────────────────────────────── */}
+        {view === "cart" && (
+          <>
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              {cartItems.length === 0 ? (
+                <p className="text-sm text-text-muted text-center py-16">
+                  O teu carrinho está vazio.
+                </p>
+              ) : (
+                cartItems.map((item) => (
+                  <DrawerItemRow
+                    key={item.key}
+                    imageUrl={item.imageUrl}
+                    name={item.name}
+                    price={fmtPrice(item.price)}
+                    indicativePrice={item.isIndicativePrice}
+                    meta={[item.brandName, item.colorName, item.sizeName, item.categoryName]}
+                    actions={
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 h-7 border border-border rounded px-2">
+                          <button
+                            type="button"
+                            onClick={() => cartStore.updateQty(item.key, -1)}
+                            disabled={item.quantity <= 1}
+                            aria-label="Diminuir"
+                            className="text-brand/50 hover:text-brand disabled:opacity-30 transition-colors"
+                          >
+                            <Minus size={12} strokeWidth={2} />
+                          </button>
+                          <span className="text-xs font-semibold text-brand min-w-[14px] text-center">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => cartStore.updateQty(item.key, 1)}
+                            disabled={item.quantity >= item.stockQuantity}
+                            aria-label="Aumentar"
+                            className="text-brand/50 hover:text-brand disabled:opacity-30 transition-colors"
+                          >
+                            <Plus size={12} strokeWidth={2} />
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => cartStore.remove(item.key)}
+                          className="text-xs border border-brand rounded-lg px-3 py-1 text-brand/50 hover:text-brand transition-colors"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    }
+                  />
+                ))
+              )}
+            </div>
+
+            {cartItems.length > 0 && (
+              <div className="shrink-0 border-t border-border-light px-4 py-4 bg-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-brand">
+                      {fmtPrice(cartTotal)}
+                    </p>
+                    <p className="text-xs text-brand/50 mt-0.5">* Preço indicativo</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setView("chat")}
+                    className="bg-brand text-white text-sm font-semibold px-6 h-11 hover:bg-primary transition-colors"
+                  >
+                    Conversar
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </>
   );
