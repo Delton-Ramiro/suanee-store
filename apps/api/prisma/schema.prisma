@@ -290,8 +290,9 @@ model CollectionFilter {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  collections CollectionFilterCollection[]
-  options     CollectionFilterOption[]
+  collections        CollectionFilterCollection[]
+  options            CollectionFilterOption[]
+  productAttributes  ProductCollectionFilterAttribute[]
 
   @@index([slug])
   @@map("collection_filters")
@@ -316,10 +317,25 @@ model CollectionFilterOption {
   value              String
   position           Int    @default(0)
 
-  filter CollectionFilter @relation(fields: [collectionFilterId], references: [id], onDelete: Cascade)
+  filter            CollectionFilter                  @relation(fields: [collectionFilterId], references: [id], onDelete: Cascade)
+  productAttributes ProductCollectionFilterAttribute[]
 
   @@unique([collectionFilterId, value])
   @@map("collection_filter_options")
+}
+
+model ProductCollectionFilterAttribute {
+  productId              String
+  collectionFilterId     String
+  collectionFilterOptionId String
+
+  product Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  filter  CollectionFilter      @relation(fields: [collectionFilterId], references: [id], onDelete: Restrict)
+  option  CollectionFilterOption @relation(fields: [collectionFilterOptionId], references: [id], onDelete: Restrict)
+
+  @@id([productId, collectionFilterId, collectionFilterOptionId])
+  @@index([productId])
+  @@map("product_collection_filter_attributes")
 }
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
@@ -464,13 +480,14 @@ model Product {
   brand     Brand      @relation(fields: [brandId], references: [id], onDelete: Restrict)
   sizeGuide SizeGuide? @relation(fields: [sizeGuideId], references: [id], onDelete: SetNull)
 
-  collections       ProductCollection[]
-  categories        ProductCategory[]
-  variants          ProductVariant[]
-  media             ProductMedia[]
-  sizes             ProductSize[]
-  attributes        ProductAttribute[]
-  favorites         Favorite[]
+  collections                    ProductCollection[]
+  categories                     ProductCategory[]
+  variants                       ProductVariant[]
+  media                          ProductMedia[]
+  sizes                          ProductSize[]
+  attributes                     ProductAttribute[]
+  collectionFilterAttributes     ProductCollectionFilterAttribute[]
+  favorites                      Favorite[]
   orderItems        OrderItem[]
   storyProducts     StorySlideProduct[]
   suppliers         ProductSupplier[]

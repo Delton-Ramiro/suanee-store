@@ -164,13 +164,14 @@ export default async function adminCollectionFiltersRoutes(
       }
 
       const filter = await prisma.collectionFilter.create({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: {
           ...data,
           options: { create: options },
           collections: {
             create: collectionIds.map((id) => ({ collectionId: id })),
           },
-        },
+        } as any,
         include: {
           options: true,
           collections: { select: { collectionId: true } },

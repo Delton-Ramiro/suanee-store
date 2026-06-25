@@ -19,6 +19,7 @@ import { useSizes, useSizeGuides } from "@/lib/hooks/useSizes";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { useCollections } from "@/lib/hooks/useCollections";
 import { useFilters, type Filter } from "@/lib/hooks/useFilters";
+import { type CollectionFilter } from "@/lib/hooks/useCollectionFilters";
 import { useCurrencyRates } from "@/lib/hooks/useCurrency";
 import Toggle from "@/components/ui/Toggle";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -138,6 +139,12 @@ type FilterAssignment = {
   filterId: string;
   filterName: string;
   categoryLevel: "L0" | "L1" | "L2";
+  values: { id: string; label: string; value: string }[];
+};
+
+type CollectionFilterAssignment = {
+  filterId: string;
+  filterName: string;
   values: { id: string; label: string; value: string }[];
 };
 
@@ -302,6 +309,17 @@ export default function ProductEditPage({
   const [l0FilterValueIds, setL0FilterValueIds] = useState<string[]>([]);
   const [l1FilterValueIds, setL1FilterValueIds] = useState<string[]>([]);
   const [l2FilterValueIds, setL2FilterValueIds] = useState<string[]>([]);
+
+  /* Collection filter state */
+  const [collectionFilterAssignments, setCollectionFilterAssignments] =
+    useState<CollectionFilterAssignment[]>([]);
+  const [allCollectionFilters, setAllCollectionFilters] = useState<
+    CollectionFilter[]
+  >([]);
+  const [selectedColFilterId, setSelectedColFilterId] = useState("");
+  const [selectedColFilterValueIds, setSelectedColFilterValueIds] = useState<
+    string[]
+  >([]);
 
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [financialLoaded, setFinancialLoaded] = useState(false);
@@ -695,6 +713,44 @@ export default function ProductEditPage({
     if (restored.length > 0) setFilterAssignments(restored);
   }, [product, allFilters]);
 
+  /* Fetch collection filters whenever collectionIds changes */
+  useEffect(() => {
+    if (collectionIds.length === 0) {
+      setAllCollectionFilters([]);
+      return;
+    }
+    apiFetch<CollectionFilter[]>(
+      `/admin/collection-filters/by-collection?collectionIds=${collectionIds.join(",")}`,
+    )
+      .then(setAllCollectionFilters)
+      .catch(() => setAllCollectionFilters([]));
+  }, [collectionIds]);
+
+  /* Restore collectionFilterAssignments from product.collectionFilterAttributes */
+  useEffect(() => {
+    if (!product || allCollectionFilters.length === 0) return;
+    if (!product.collectionFilterAttributes?.length) return;
+
+    const grouped = new Map<string, string[]>();
+    for (const a of product.collectionFilterAttributes) {
+      const list = grouped.get(a.collectionFilterId) ?? [];
+      list.push(a.collectionFilterOptionId);
+      grouped.set(a.collectionFilterId, list);
+    }
+
+    const restored: CollectionFilterAssignment[] = [];
+    for (const [filterId, optionIds] of grouped.entries()) {
+      const filter = allCollectionFilters.find((f) => f.id === filterId);
+      if (!filter) continue;
+      const values = filter.options
+        .filter((o) => optionIds.includes(o.id))
+        .map((o) => ({ id: o.id, label: o.label, value: o.value }));
+      if (values.length > 0)
+        restored.push({ filterId, filterName: filter.name, values });
+    }
+    if (restored.length > 0) setCollectionFilterAssignments(restored);
+  }, [product, allCollectionFilters]);
+
   /* ── Computed category options ─────────────────────────────────────────── */
   const l0Options = useMemo(() => {
     const hasBrandFilter = brandId && brandAllowedCategoryIds.size > 0;
@@ -983,6 +1039,47 @@ export default function ProductEditPage({
     );
   }
 
+  /* ── Collection filter helpers ─────────────────────────────────────────── */
+  function addCollectionFilterAssignment() {
+    if (!canEditProduct || !selectedColFilterId) return;
+    const filter = allCollectionFilters.find(
+      (f) => f.id === selectedColFilterId,
+    );
+    if (!filter) return;
+
+    setCollectionFilterAssignments((prev) => {
+      const idx = prev.findIndex((x) => x.filterId === selectedColFilterId);
+      if (selectedColFilterValueIds.length === 0) {
+        return idx >= 0 ? prev.filter((_, i) => i !== idx) : prev;
+      }
+      const values = filter.options
+        .filter((o) => selectedColFilterValueIds.includes(o.id))
+        .map((o) => ({ id: o.id, label: o.label, value: o.value }));
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx]!, values };
+        return next;
+      }
+      return [...prev, { filterId: filter.id, filterName: filter.name, values }];
+    });
+
+    setSelectedColFilterId("");
+    setSelectedColFilterValueIds([]);
+  }
+
+  function removeCollectionFilterValue(filterId: string, valueId: string) {
+    if (!canEditProduct) return;
+    setCollectionFilterAssignments((prev) =>
+      prev
+        .map((a) =>
+          a.filterId === filterId
+            ? { ...a, values: a.values.filter((v) => v.id !== valueId) }
+            : a,
+        )
+        .filter((a) => a.values.length > 0),
+    );
+  }
+
   /* ── Supplier helpers ──────────────────────────────────────────────────── */
   function updateSupplier(idx: number, field: keyof SupplierRow, val: string) {
     if (!canEditProduct) return;
@@ -1099,6 +1196,10 @@ export default function ProductEditPage({
           },
           [],
         ),
+      collectionFilterAttributes: collectionFilterAssignments.map((a) => ({
+        collectionFilterId: a.filterId,
+        collectionFilterOptionIds: a.values.map((v) => v.id),
+      })),
       sizeIds: Array.from(new Set(Object.values(selectedSizesByColor).flat())),
       variants: selectedColorIds.flatMap((cid) =>
         (selectedSizesByColor[cid] ?? []).map((sid, idx) => {
@@ -2392,6 +2493,126 @@ export default function ProductEditPage({
                 </>
               );
             })()}
+
+          {/* ── Collection filters ─────────────────────────────────────────── */}
+          <div className="border-t border-border-light pt-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="text-md font-bold text-primary font-figtree">
+                Filtros de coleção
+              </span>
+              {canEditProduct && (
+                <button
+                  type="button"
+                  onClick={addCollectionFilterAssignment}
+                  disabled={
+                    !selectedColFilterId ||
+                    selectedColFilterValueIds.length === 0
+                  }
+                  className="h-9 px-4 rounded-xl bg-navy text-white text-s font-semibold font-figtree hover:bg-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Adicionar
+                </button>
+              )}
+            </div>
+
+            {collectionIds.length === 0 ? (
+              <p className="text-s text-text-muted font-figtree italic">
+                Associe o produto a uma coleção em &quot;Tendências&quot; para
+                ver os filtros disponíveis.
+              </p>
+            ) : allCollectionFilters.length === 0 ? (
+              <p className="text-s text-text-muted font-figtree italic">
+                Nenhum filtro de coleção associado às coleções selecionadas.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Filter picker */}
+                <div>
+                  <FieldLabel>Filtro de coleção</FieldLabel>
+                  <SearchableSelect
+                    value={selectedColFilterId}
+                    onChange={(id) => {
+                      setSelectedColFilterId(id);
+                      setSelectedColFilterValueIds(
+                        collectionFilterAssignments
+                          .find((a) => a.filterId === id)
+                          ?.values.map((v) => v.id) ?? [],
+                      );
+                    }}
+                    options={allCollectionFilters.map((f) => ({
+                      value: f.id,
+                      label: f.name,
+                      hint: f.isActive
+                        ? undefined
+                        : "Inactivo — não visível no portal",
+                    }))}
+                    placeholder="Selecione o filtro de coleção"
+                    disabled={!canEditProduct}
+                  />
+                </div>
+                {/* Value picker */}
+                <div>
+                  <FieldLabel>Valores</FieldLabel>
+                  <MultiSelectDropdown
+                    label=""
+                    options={
+                      allCollectionFilters
+                        .find((f) => f.id === selectedColFilterId)
+                        ?.options.map((o) => ({
+                          value: o.id,
+                          label: o.label,
+                        })) ?? []
+                    }
+                    selected={selectedColFilterValueIds}
+                    onChange={setSelectedColFilterValueIds}
+                    placeholder={
+                      selectedColFilterId
+                        ? "Selecione os valores"
+                        : "Selecione o filtro primeiro"
+                    }
+                    disabled={!selectedColFilterId || !canEditProduct}
+                    searchable
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Summary of assigned collection filter values */}
+            {collectionFilterAssignments.length > 0 && (
+              <div className="flex flex-col gap-4 pt-4 border-t border-border-light">
+                {collectionFilterAssignments.map((a) => (
+                  <div key={a.filterId} className="flex flex-col gap-2">
+                    <span className="text-s font-bold text-primary font-figtree">
+                      Valores atribuídos para o{" "}
+                      <span className="text-accent">{a.filterName}</span>
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {a.values.map((v) => (
+                        <span
+                          key={v.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-navy text-white text-[12px] font-figtree"
+                        >
+                          {v.label}
+                          {canEditProduct && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeCollectionFilterValue(a.filterId, v.id)
+                              }
+                              className="opacity-70 hover:opacity-100 transition-opacity"
+                              aria-label={`Remover ${v.label}`}
+                            >
+                              <X size={11} />
+                            </button>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ════════════════════ TAMBÉM PODE GOSTAR ══════════════════════════ */}

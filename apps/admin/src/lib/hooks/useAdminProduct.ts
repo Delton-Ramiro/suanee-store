@@ -67,6 +67,10 @@ export type AdminProductDetail = {
   media: ProductMediaItem[];
   sizes: { sizeId: string }[];
   attributes: { attributeDefinitionId: string; attributeOptionId: string }[];
+  collectionFilterAttributes: {
+    collectionFilterId: string;
+    collectionFilterOptionId: string;
+  }[];
   createdAt: string;
   updatedAt: string;
 };
@@ -95,6 +99,10 @@ export type CreateProductPayload = {
   attributes?: {
     attributeDefinitionId: string;
     attributeOptionIds: string[];
+  }[];
+  collectionFilterAttributes?: {
+    collectionFilterId: string;
+    collectionFilterOptionIds: string[];
   }[];
   variants?: {
     colorId: string;

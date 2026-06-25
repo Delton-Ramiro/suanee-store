@@ -215,6 +215,12 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
           attributes: {
             select: { attributeDefinitionId: true, attributeOptionId: true },
           },
+          collectionFilterAttributes: {
+            select: {
+              collectionFilterId: true,
+              collectionFilterOptionId: true,
+            },
+          },
         },
       });
       if (!product)
@@ -628,6 +634,7 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
         variants = [],
         media = [],
         attributes,
+        collectionFilterAttributes,
         categoryIds = [],
         sizeIds = [],
         collectionIds,
@@ -692,6 +699,21 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
               categories: { include: { category: true } },
             },
           });
+          if (collectionFilterAttributes?.length) {
+            await tx.productCollectionFilterAttribute.createMany({
+              data: collectionFilterAttributes.flatMap(
+                (a: {
+                  collectionFilterId: string;
+                  collectionFilterOptionIds: string[];
+                }) =>
+                  a.collectionFilterOptionIds.map((optId: string) => ({
+                    productId: created.id,
+                    collectionFilterId: a.collectionFilterId,
+                    collectionFilterOptionId: optId,
+                  })),
+              ),
+            });
+          }
           return created;
         });
       } catch (err) {
@@ -807,6 +829,7 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
         variants,
         media,
         attributes,
+        collectionFilterAttributes,
         categoryIds,
         sizeIds,
         collectionIds,
@@ -906,6 +929,26 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
                 })),
             ),
           });
+        }
+        if (collectionFilterAttributes) {
+          await tx.productCollectionFilterAttribute.deleteMany({
+            where: { productId: req.params.id },
+          });
+          if (collectionFilterAttributes.length > 0) {
+            await tx.productCollectionFilterAttribute.createMany({
+              data: collectionFilterAttributes.flatMap(
+                (a: {
+                  collectionFilterId: string;
+                  collectionFilterOptionIds: string[];
+                }) =>
+                  a.collectionFilterOptionIds.map((optId: string) => ({
+                    productId: req.params.id,
+                    collectionFilterId: a.collectionFilterId,
+                    collectionFilterOptionId: optId,
+                  })),
+              ),
+            });
+          }
         }
         // BUG-14: Handle variants update. Upsert by colorId+sizeId to preserve
         // SKUs and avoid FK violations from OrderItem references on deletion.
