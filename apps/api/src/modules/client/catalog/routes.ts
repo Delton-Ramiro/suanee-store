@@ -1310,4 +1310,19 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       return reply.send(offsetPaginate(mappedProducts, total, q.page, q.limit));
     },
   });
+
+  // GET /catalog/popup-modals/active
+  fastify.get("/popup-modals/active", {
+    schema: {
+      tags: ["Client Catalog"],
+      response: { 200: { type: "object" }, 204: { description: "No active modal" } },
+    },
+    handler: async (_req, reply) => {
+      const modal = await prisma.popupModal.findFirst({
+        where: { isActive: true },
+      });
+      if (!modal) return reply.status(204).send();
+      return reply.send(modal);
+    },
+  });
 }

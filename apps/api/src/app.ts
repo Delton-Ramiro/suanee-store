@@ -30,6 +30,7 @@ import adminChatsRoutes from "./modules/admin/chats/routes.js";
 import adminAnalyticsRoutes from "./modules/admin/analytics/routes.js";
 import adminMediaRoutes from "./modules/admin/media/routes.js";
 import adminSearchRoutes from "./modules/admin/search/routes.js";
+import adminPopupModalsRoutes from "./modules/admin/popup-modals/routes.js";
 
 // Client routes
 import clientAuthRoutes from "./modules/client/auth/routes.js";
@@ -153,6 +154,9 @@ export async function buildApp() {
   });
   await app.register(adminMediaRoutes, { prefix: `${API}/admin/media` });
   await app.register(adminSearchRoutes, { prefix: `${API}/admin/search` });
+  await app.register(adminPopupModalsRoutes, {
+    prefix: `${API}/admin/popup-modals`,
+  });
 
   // ── Client routes ─────────────────────────────────────────────────────────
   await app.register(clientAuthRoutes, { prefix: `${API}/auth` });

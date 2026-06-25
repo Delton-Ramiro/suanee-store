@@ -832,3 +832,18 @@ model CurrencyRate {
 
   @@map("currency_rates")
 }
+
+// ─── Popup Modals ─────────────────────────────────────────────────────────────
+
+model PopupModal {
+  id          String   @id @default(uuid())
+  name        String
+  imageUrl    String
+  redirectUrl String?
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("popup_modals")
+}

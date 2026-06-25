@@ -181,6 +181,10 @@ export function canManageCurrencies(user: AdminAccessUser): boolean {
   return hasAdminPermission(user, Permissions.CURRENCY_EDIT);
 }
 
+export function canManagePopupModals(user: AdminAccessUser): boolean {
+  return hasAdminPermission(user, Permissions.POPUP_MODALS_EDIT);
+}
+
 export function canEditPendingOrderDetails(user: AdminAccessUser): boolean {
   const roleKey = resolveAdminRoleKey(user);
   if (!roleKey) {

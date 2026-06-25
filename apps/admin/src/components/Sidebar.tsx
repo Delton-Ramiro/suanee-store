@@ -14,6 +14,7 @@ import {
   LogOut,
   Maximize2,
   MessageCircle,
+  MonitorPlay,
   Package,
   Palette,
   Settings,
@@ -89,6 +90,12 @@ const STRUCTURE_ITEMS = [
     label: "Câmbio",
     icon: SquaresExclude,
     permission: Permissions.CURRENCY_EDIT,
+  },
+  {
+    href: "/modals",
+    label: "Modais",
+    icon: MonitorPlay,
+    permission: Permissions.POPUP_MODALS_EDIT,
   },
 ];
 
