@@ -75,7 +75,7 @@ export type ProductDetail = {
     id: string;
     name: string;
     description: string | null;
-    images: string[];
+    images: Array<{ url: string; position?: number }>;
   } | null;
   relatedProducts: Array<{
     id: string;

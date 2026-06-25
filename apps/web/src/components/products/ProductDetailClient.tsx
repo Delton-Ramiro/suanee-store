@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
-import { ChevronDown, Heart, Ruler } from "lucide-react";
+import { ChevronDown, Heart, Ruler, X } from "lucide-react";
 import type {
   ProductDetail,
   ProductMedia,
@@ -216,6 +216,116 @@ function SizeDropdown({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/* Size guide drawer                                                            */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+type SizeGuideData = {
+  id: string;
+  name: string;
+  description: string | null;
+  images: Array<{ url: string; position?: number }>;
+} | null;
+
+function SizeGuideDrawer({
+  sizeGuide,
+  onClose,
+}: {
+  sizeGuide: SizeGuideData;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  const inner = (
+    <>
+      {/* Header */}
+      <div className="flex items-center gap-3 px-7 pt-8 pb-5 shrink-0">
+        <h2 className="flex-1 text-xl font-bold text-brand leading-tight">
+          Guia de tamanho
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 text-brand hover:opacity-60 transition-opacity"
+          aria-label="Fechar"
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      {/* Blue bar — notes overlaid as white text */}
+      <div className="bg-brand shrink-0 min-h-[65px] flex items-center px-7 py-4">
+        {sizeGuide?.description && (
+          <p className="text-white text-sm font-medium leading-snug">
+            {sizeGuide.description}
+          </p>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-7">
+        {!sizeGuide ? (
+          <div className="flex flex-col items-center justify-center h-full min-h-48 text-center gap-3 py-12">
+            <Ruler size={36} className="text-border" />
+            <p className="font-medium text-brand">
+              Guia de tamanho não disponível
+            </p>
+            <p className="text-sm text-text-muted">
+              Este produto não tem um guia de tamanho associado.
+            </p>
+          </div>
+        ) : sizeGuide.images.length === 0 ? (
+          <p className="text-sm text-text-muted mt-4">
+            Sem imagens disponíveis para este guia.
+          </p>
+        ) : (
+          <div className="w-full max-w-md mx-auto flex flex-col gap-3 mt-4">
+            {[...sizeGuide.images]
+              .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+              .map((img, i) => (
+                <img
+                  key={i}
+                  src={img.url}
+                  alt={`${sizeGuide.name} ${i + 1}`}
+                  className="w-full h-auto rounded object-contain"
+                />
+              ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+
+      {/* Desktop: right panel */}
+      <div className="hidden md:flex fixed inset-y-0 right-0 z-50 w-[520px] flex-col bg-white rounded-tl-lg rounded-bl-lg shadow-[0px_1px_3px_0px_rgba(0,0,0,0.2)] overflow-hidden">
+        {inner}
+      </div>
+
+      {/* Mobile: centered card */}
+      <div
+        className="md:hidden fixed inset-0 z-50 flex items-center justify-center px-5"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="w-full bg-white rounded-xl shadow-[0px_1px_3px_0px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col max-h-[80vh]">
+          {inner}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /* Main component                                                               */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
@@ -272,6 +382,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
     return first?.id ?? colors[0]?.id ?? null;
   });
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null);
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
 
   /* ── Media for selected color ────────────────────────────────────────── */
   const displayMedia = useMemo(() => {
@@ -577,6 +688,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
           {/* Size guide link */}
           <button
             type="button"
+            onClick={() => setSizeGuideOpen(true)}
             className="flex items-center gap-1.5 text-xs text-brand underline underline-offset-2 mb-6 hover:opacity-70 transition-opacity"
           >
             <Ruler size={13} />
@@ -652,6 +764,14 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
             ))}
           </div>
         </section>
+      )}
+
+      {/* ── Size guide drawer ───────────────────────────────────────────── */}
+      {sizeGuideOpen && (
+        <SizeGuideDrawer
+          sizeGuide={product.sizeGuide}
+          onClose={() => setSizeGuideOpen(false)}
+        />
       )}
     </div>
   );
