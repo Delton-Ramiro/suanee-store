@@ -51,6 +51,8 @@ type Props = {
   active: SearchActiveFilters;
   onChange: (next: SearchActiveFilters) => void;
   onResetAll: () => void;
+  /** Hide the Marca filter section (e.g. on brand pages where brand is already fixed) */
+  hideBrands?: boolean;
   isOpen: boolean;
   onClose: () => void;
 };
@@ -301,6 +303,7 @@ export function SearchFilterSidebar({
   active,
   onChange,
   onResetAll,
+  hideBrands = false,
   isOpen,
   onClose,
 }: Props) {
@@ -395,8 +398,8 @@ export function SearchFilterSidebar({
           />
         )}
 
-        {/* Marca — always shown */}
-        {brands.length > 0 && (
+        {/* Marca — hidden when brand is already fixed (e.g. brand page) */}
+        {!hideBrands && brands.length > 0 && (
           <FilterGroup title="Marca">
             <FilterSearch
               value={brandQuery}

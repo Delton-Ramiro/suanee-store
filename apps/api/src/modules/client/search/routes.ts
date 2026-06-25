@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "../../../lib/prisma.js";
 
 const SearchQuery = z.object({
-  q: z.string().min(1).max(200),
+  q: z.string().max(200).default(""),
   page: z.coerce.number().int().min(1).default(1),
   perPage: z.coerce.number().int().min(1).max(100).default(24),
   sort: z
@@ -40,9 +40,8 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
         "Full-text product search powered by PostgreSQL pg_trgm. Returns facets for brand, category, color, gender, and stock status alongside the product hits.",
       querystring: {
         type: "object",
-        required: ["q"],
         properties: {
-          q: { type: "string", minLength: 1, maxLength: 200 },
+          q: { type: "string", maxLength: 200, default: "" },
           page: { type: "integer", default: 1 },
           perPage: { type: "integer", default: 24, maximum: 100 },
           sort: {
@@ -99,25 +98,32 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
         }
       }
 
-      // Resolve brand IDs whose name matches the search term
-      const brandIdsFromText = (
-        await prisma.brand.findMany({
-          where: { name: { contains: q.q, mode: "insensitive" } },
-          select: { id: true },
-        })
-      ).map((b) => b.id);
+      // Resolve brand IDs whose name matches the search term (skipped when q is empty)
+      const hasQuery = q.q.trim().length > 0;
+      const brandIdsFromText = hasQuery
+        ? (
+            await prisma.brand.findMany({
+              where: { name: { contains: q.q, mode: "insensitive" } },
+              select: { id: true },
+            })
+          ).map((b) => b.id)
+        : [];
 
       // Base where clause (text match + all active filters)
       const baseWhere: Prisma.ProductWhereInput = {
         status: "published" as const,
         isVisible: true,
-        OR: [
-          { name: { contains: q.q, mode: "insensitive" as const } },
-          { description: { contains: q.q, mode: "insensitive" as const } },
-          ...(brandIdsFromText.length
-            ? [{ brandId: { in: brandIdsFromText } }]
-            : []),
-        ],
+        ...(hasQuery
+          ? {
+              OR: [
+                { name: { contains: q.q, mode: "insensitive" as const } },
+                { description: { contains: q.q, mode: "insensitive" as const } },
+                ...(brandIdsFromText.length
+                  ? [{ brandId: { in: brandIdsFromText } }]
+                  : []),
+              ],
+            }
+          : {}),
         ...(brandIdList.length ? { brandId: { in: brandIdList } } : {}),
         ...(q.categoryId
           ? { categories: { some: { categoryId: q.categoryId } } }

@@ -48,7 +48,7 @@ export type SearchParams = {
 
 function buildSearchUrl(params: SearchParams): string {
   const qs = new URLSearchParams();
-  qs.set("q", params.q);
+  if (params.q?.trim()) qs.set("q", params.q.trim());
   if (params.page && params.page > 1) qs.set("page", String(params.page));
   if (params.perPage) qs.set("perPage", String(params.perPage));
   if (params.sort && params.sort !== "newest") qs.set("sort", params.sort);
@@ -68,7 +68,7 @@ export function useSearch(params: SearchParams) {
   return useQuery<SearchResponse>({
     queryKey: ["search", params],
     queryFn: () => apiFetch<SearchResponse>(buildSearchUrl(params)),
-    enabled: Boolean(params.q?.trim()),
+    enabled: true,
     staleTime: 60_000,
     placeholderData: (prev) => prev,
   });

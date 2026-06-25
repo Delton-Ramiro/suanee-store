@@ -2,15 +2,23 @@
 
 import { useCallback, useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useBrandProducts } from "@/lib/hooks/useBrandProducts";
-import { useBrandFilters } from "@/lib/hooks/useBrandFilters";
+import { Search } from "lucide-react";
+import { useSearch, type SearchDocument } from "@/lib/hooks/useSearch";
+import { useCategoryTree } from "@/lib/hooks/useCategoryTree";
+import {
+  useCategoryFilters,
+  useAllColors,
+  type BrandOption,
+} from "@/lib/hooks/useCategoryFilters";
 import { ProductCard } from "@/components/products/ProductCard";
 import { SortBar } from "@/components/products/SortBar";
 import { Pagination } from "@/components/products/Pagination";
 import {
-  BrandFilterSidebar,
-  type BrandActiveFilters,
-} from "./BrandFilterSidebar";
+  SearchFilterSidebar,
+  type SearchActiveFilters,
+  type CategorySelection,
+  EMPTY_CAT_SELECTION,
+} from "@/components/search/SearchFilterSidebar";
 
 type BrandInfo = {
   id: string;
@@ -22,76 +30,84 @@ type BrandInfo = {
 };
 
 const PAGE_LIMIT = 24;
+type Sort = "newest" | "price_asc" | "price_desc";
 
-/* ── URL helpers ─────────────────────────────────────────────────────────── */
-
-function readFromUrl(params: URLSearchParams): BrandActiveFilters & {
-  page: number;
-  sort: "newest" | "price_asc" | "price_desc";
-} {
-  const sort = params.get("sort");
-
-  // Parse attrg-{name} params back into mergedAttrs
-  const mergedAttrs: Record<string, { defId: string; optId: string }[]> = {};
-  params.forEach((value, key) => {
-    if (key.startsWith("attrg-")) {
-      const groupName = key.slice(6);
-      const pairs = value
-        .split(",")
-        .map((p) => { const [defId, optId] = p.split(":"); return { defId: defId ?? "", optId: optId ?? "" }; })
-        .filter((p) => p.defId && p.optId);
-      if (pairs.length > 0) mergedAttrs[groupName] = pairs;
-    }
-  });
-
+function toCardItem(doc: SearchDocument) {
   return {
+    id: doc.id,
+    name: doc.name,
+    slug: doc.slug,
+    basePrice: doc.basePrice,
+    isIndicativePrice: doc.isIndicativePrice,
+    hasDiscount: doc.hasDiscount,
+    discountPrice: doc.discountPrice,
+    brand: { id: doc.brandId, name: doc.brandName, slug: doc.brandSlug },
+    media: doc.media,
+    variants: doc.colors.map((c) => ({ colorId: c.id, color: c })),
+  };
+}
+
+/* ── URL helpers (same shape as pesquisa, minus brand) ──────────────────── */
+
+type UrlState = {
+  q: string;
+  page: number;
+  sort: Sort;
+  cat0: string | null; cat0Id: string | null;
+  cat1: string | null; cat1Id: string | null;
+  cat2: string | null; cat2Id: string | null;
+  colorIds: string[];
+  sizeIds: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  attrFilters: Record<string, string[]>;
+};
+
+function readUrl(params: URLSearchParams): UrlState {
+  const attrFilters: Record<string, string[]> = {};
+  params.forEach((value, key) => {
+    if (key.startsWith("attr-")) attrFilters[key.slice(5)] = value.split(",").filter(Boolean);
+  });
+  const sort = params.get("sort");
+  return {
+    q: params.get("q") ?? "",
     page: Math.max(1, Number(params.get("page") ?? 1)),
-    sort: (["newest", "price_asc", "price_desc"].includes(sort ?? "")
-      ? sort
-      : "newest") as "newest" | "price_asc" | "price_desc",
-    cats: params.get("cat")?.split(",").filter(Boolean) ?? [],
-    color: params.get("color")?.split(",").filter(Boolean) ?? [],
-    size: params.get("size")?.split(",").filter(Boolean) ?? [],
+    sort: (["newest", "price_asc", "price_desc"].includes(sort ?? "") ? sort : "newest") as Sort,
+    cat0: params.get("cat0") ?? null, cat0Id: params.get("cat0Id") ?? null,
+    cat1: params.get("cat1") ?? null, cat1Id: params.get("cat1Id") ?? null,
+    cat2: params.get("cat2") ?? null, cat2Id: params.get("cat2Id") ?? null,
+    colorIds: params.get("color")?.split(",").filter(Boolean) ?? [],
+    sizeIds:  params.get("size")?.split(",").filter(Boolean) ?? [],
     minPrice: params.get("minPrice") ? Number(params.get("minPrice")) : undefined,
     maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : undefined,
-    mergedAttrs,
+    attrFilters,
   };
 }
 
 function buildUrl(
   pathname: string,
-  filters: BrandActiveFilters,
+  q: string,
+  cat: CategorySelection,
+  filters: SearchActiveFilters,
   page: number,
-  sort: string,
+  sort: Sort,
 ): string {
   const params = new URLSearchParams();
+  if (q.trim()) params.set("q", q.trim());
   if (page > 1) params.set("page", String(page));
   if (sort !== "newest") params.set("sort", sort);
-  if (filters.cats.length) params.set("cat", filters.cats.join(","));
-  if (filters.color.length) params.set("color", filters.color.join(","));
-  if (filters.size.length) params.set("size", filters.size.join(","));
+  if (cat.l0Slug) { params.set("cat0", cat.l0Slug); params.set("cat0Id", cat.l0Id!); }
+  if (cat.l1Slug) { params.set("cat1", cat.l1Slug); params.set("cat1Id", cat.l1Id!); }
+  if (cat.l2Slug) { params.set("cat2", cat.l2Slug); params.set("cat2Id", cat.l2Id!); }
+  if (filters.colorIds.length) params.set("color", filters.colorIds.join(","));
+  if (filters.sizeIds.length)  params.set("size",  filters.sizeIds.join(","));
   if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
   if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
-
-  // Encode merged attr groups: attrg-{name}=defId1:optId1,defId2:optId2,...
-  for (const [key, pairs] of Object.entries(filters.mergedAttrs)) {
-    if (pairs.length > 0) {
-      params.set(`attrg-${key}`, pairs.map((p) => `${p.defId}:${p.optId}`).join(","));
-    }
+  for (const [defId, optIds] of Object.entries(filters.attrFilters)) {
+    if (optIds.length) params.set(`attr-${defId}`, optIds.join(","));
   }
-
   const qs = params.toString();
   return `${pathname}${qs ? `?${qs}` : ""}`;
-}
-
-function buildProductFetchParams(filters: BrandActiveFilters): Record<string, string> {
-  const extra: Record<string, string> = {};
-  for (const [key, pairs] of Object.entries(filters.mergedAttrs)) {
-    if (pairs.length > 0) {
-      extra[`attrg-${key}`] = pairs.map((p) => `${p.defId}:${p.optId}`).join(",");
-    }
-  }
-  return extra;
 }
 
 /* ── Component ───────────────────────────────────────────────────────────── */
@@ -101,98 +117,177 @@ export function BrandProductsClient({ brand }: { brand: BrandInfo }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
-
-  const urlState = readFromUrl(searchParams);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<BrandActiveFilters>({
-    cats: urlState.cats,
-    color: urlState.color,
-    size: urlState.size,
-    minPrice: urlState.minPrice,
-    maxPrice: urlState.maxPrice,
-    mergedAttrs: urlState.mergedAttrs,
+
+  const url = readUrl(searchParams);
+
+  const [sort, setSort] = useState<Sort>(url.sort);
+  const [page, setPage] = useState(url.page);
+  const [searchInput, setSearchInput] = useState(url.q);
+
+  const [categorySelection, setCategorySelection] = useState<CategorySelection>({
+    l0Slug: url.cat0, l0Id: url.cat0Id,
+    l1Slug: url.cat1, l1Id: url.cat1Id,
+    l2Slug: url.cat2, l2Id: url.cat2Id,
   });
-  const [sort, setSort] = useState(urlState.sort);
-  const [page, setPage] = useState(urlState.page);
+
+  const [activeFilters, setActiveFilters] = useState<SearchActiveFilters>({
+    brandIds: [],
+    colorIds: url.colorIds,
+    sizeIds:  url.sizeIds,
+    minPrice: url.minPrice,
+    maxPrice: url.maxPrice,
+    attrFilters: url.attrFilters,
+  });
 
   useEffect(() => {
-    const s = readFromUrl(searchParams);
-    setActiveFilters({
-      cats: s.cats,
-      color: s.color,
-      size: s.size,
-      minPrice: s.minPrice,
-      maxPrice: s.maxPrice,
-      mergedAttrs: s.mergedAttrs,
-    });
+    const s = readUrl(searchParams);
     setSort(s.sort);
     setPage(s.page);
+    setSearchInput(s.q);
+    setCategorySelection({
+      l0Slug: s.cat0, l0Id: s.cat0Id,
+      l1Slug: s.cat1, l1Id: s.cat1Id,
+      l2Slug: s.cat2, l2Id: s.cat2Id,
+    });
+    setActiveFilters({
+      brandIds: [],
+      colorIds: s.colorIds,
+      sizeIds:  s.sizeIds,
+      minPrice: s.minPrice,
+      maxPrice: s.maxPrice,
+      attrFilters: s.attrFilters,
+    });
   }, [searchParams]);
 
-  const { data: filtersData } = useBrandFilters(brand.slug);
+  const { data: categoryTree } = useCategoryTree();
+  const { data: globalColors = [] } = useAllColors();
 
-  // Build extra params for merged attrs so the query key changes on attr changes
-  const mergedAttrParams = buildProductFetchParams(activeFilters);
+  const filterCategorySlug =
+    categorySelection.l2Slug ?? categorySelection.l1Slug ?? categorySelection.l0Slug ?? null;
+  const { data: categoryFilters } = useCategoryFilters(filterCategorySlug ?? "");
 
-  const { data, isLoading, isFetching } = useBrandProducts(brand.slug, {
+  const searchCategoryId =
+    categorySelection.l2Id ?? categorySelection.l1Id ?? categorySelection.l0Id ?? undefined;
+
+  const { data: searchData, isLoading, isFetching } = useSearch({
+    q: url.q,
+    brandIds: brand.id,
     page,
-    limit: PAGE_LIMIT,
+    perPage: PAGE_LIMIT,
     sort,
-    cats: activeFilters.cats.join(",") || undefined,
-    color: activeFilters.color.join(",") || undefined,
-    size: activeFilters.size.join(",") || undefined,
+    categoryId: searchCategoryId,
+    colorIds: activeFilters.colorIds.join(",") || undefined,
+    sizeIds:  activeFilters.sizeIds.join(",")  || undefined,
     minPrice: activeFilters.minPrice,
     maxPrice: activeFilters.maxPrice,
-    extra: mergedAttrParams,
+    attrFilters: activeFilters.attrFilters,
   });
 
   const pushUrl = useCallback(
-    (filters: BrandActiveFilters, newPage: number, newSort: string) => {
-      const url = buildUrl(pathname, filters, newPage, newSort);
-      startTransition(() => router.push(url, { scroll: false }));
+    (cat: CategorySelection, filters: SearchActiveFilters, newPage: number, newSort: Sort) => {
+      const u = buildUrl(pathname, url.q, cat, filters, newPage, newSort);
+      startTransition(() => router.push(u, { scroll: false }));
     },
-    [pathname, router],
+    [pathname, router, url.q],
   );
 
-  function handleFiltersChange(next: BrandActiveFilters) {
-    setActiveFilters(next);
+  function handleCategoryChange(next: CategorySelection) {
+    const nextFilters: SearchActiveFilters = { ...activeFilters, sizeIds: [], attrFilters: {} };
+    setCategorySelection(next);
+    setActiveFilters(nextFilters);
     setPage(1);
-    pushUrl(next, 1, sort);
+    pushUrl(next, nextFilters, 1, sort);
   }
 
-  function handleSort(newSort: "newest" | "price_asc" | "price_desc") {
+  function handleResetAll() {
+    const empty: SearchActiveFilters = { brandIds: [], colorIds: [], sizeIds: [], attrFilters: {} };
+    setCategorySelection(EMPTY_CAT_SELECTION);
+    setActiveFilters(empty);
+    setPage(1);
+    pushUrl(EMPTY_CAT_SELECTION, empty, 1, sort);
+  }
+
+  function handleFiltersChange(next: SearchActiveFilters) {
+    setActiveFilters(next);
+    setPage(1);
+    pushUrl(categorySelection, next, 1, sort);
+  }
+
+  useEffect(() => {
+    if (searchInput.trim() === url.q.trim()) return;
+    const timer = setTimeout(() => {
+      const u = buildUrl(pathname, searchInput.trim(), categorySelection, activeFilters, 1, sort);
+      startTransition(() => router.push(u, { scroll: false }));
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (searchInput.trim() === url.q.trim()) return;
+    const u = buildUrl(pathname, searchInput.trim(), categorySelection, activeFilters, 1, sort);
+    startTransition(() => router.push(u, { scroll: false }));
+  }
+
+  function handleSort(newSort: Sort) {
     setSort(newSort);
     setPage(1);
-    pushUrl(activeFilters, 1, newSort);
+    pushUrl(categorySelection, activeFilters, 1, newSort);
   }
 
   function handlePage(newPage: number) {
     setPage(newPage);
-    pushUrl(activeFilters, newPage, sort);
+    pushUrl(categorySelection, activeFilters, newPage, sort);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const products = data?.items ?? [];
-  const total = data?.total ?? 0;
-  const totalPages = data?.totalPages ?? 1;
+  const products = searchData?.hits.map((h) => h.document) ?? [];
+  const total = searchData?.total ?? 0;
+  const totalPages = searchData?.totalPages ?? 1;
 
   const hasActiveFilters =
-    activeFilters.cats.length > 0 ||
-    activeFilters.color.length > 0 ||
-    activeFilters.size.length > 0 ||
+    categorySelection.l0Slug !== null ||
+    activeFilters.colorIds.length > 0 ||
+    activeFilters.sizeIds.length > 0 ||
     activeFilters.minPrice !== undefined ||
     activeFilters.maxPrice !== undefined ||
-    Object.values(activeFilters.mergedAttrs).some((p) => p.length > 0);
+    Object.values(activeFilters.attrFilters).some((v) => v.length > 0);
+
+  const sharedSidebarProps = {
+    categoryTree: categoryTree ?? [],
+    categorySelection,
+    onCategoryChange: handleCategoryChange,
+    available: filterCategorySlug ? (categoryFilters ?? null) : null,
+    globalBrands: [] as BrandOption[],
+    globalColors,
+    active: activeFilters,
+    onChange: handleFiltersChange,
+    onResetAll: handleResetAll,
+    hideBrands: true,
+  };
 
   return (
     <div>
-      <div className="mb-4">
-        <h1 className="font-inter font-medium text-2xl md:text-[38px] text-black tracking-[0.02em] leading-none uppercase">
+      <div className="flex items-end justify-between mb-6">
+        <h1 className="font-inter font-medium text-2xl md:text-h2 text-black tracking-[0.02em] leading-none uppercase">
           {brand.name}
         </h1>
-        <p className="text-sm text-text-muted mt-1 hidden md:block">
-          Todos os produtos desta marca com os filtros abaixo.
-        </p>
+        <form onSubmit={handleSearchSubmit} className="w-56">
+          <div className="flex items-center gap-2">
+            <Search size={13} className="text-brand/35 shrink-0" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="O que procura?"
+              autoComplete="off"
+              className="flex-1 min-w-0 bg-transparent text-sm text-brand placeholder:text-brand/35 outline-none"
+            />
+          </div>
+          <div className="h-px bg-brand/15 mt-1.5" />
+        </form>
       </div>
 
       <SortBar
@@ -207,41 +302,19 @@ export function BrandProductsClient({ brand }: { brand: BrandInfo }) {
       />
 
       <div className="flex gap-6">
-        {/* Desktop sidebar */}
+        {/* Desktop filter sidebar */}
         <div
           className={`hidden lg:block overflow-hidden transition-all duration-300 ease-in-out flex-none ${
-            filtersOpen ? "w-[260px] opacity-100" : "w-0 opacity-0"
+            filtersOpen ? "w-65 opacity-100" : "w-0 opacity-0"
           }`}
         >
-          {filtersData && (
-            <BrandFilterSidebar
-              categories={filtersData.categories}
-              colors={filtersData.colors}
-              sizes={filtersData.sizes}
-              attrDefs={filtersData.filters}
-              active={activeFilters}
-              onChange={handleFiltersChange}
-              isOpen={filtersOpen}
-              onClose={() => setFiltersOpen(false)}
-            />
-          )}
+          <SearchFilterSidebar {...sharedSidebarProps} isOpen={filtersOpen} onClose={() => setFiltersOpen(false)} />
         </div>
 
         {/* Mobile overlay */}
-        {filtersData && (
-          <div className="lg:hidden">
-            <BrandFilterSidebar
-              categories={filtersData.categories}
-              colors={filtersData.colors}
-              sizes={filtersData.sizes}
-              attrDefs={filtersData.filters}
-              active={activeFilters}
-              onChange={handleFiltersChange}
-              isOpen={filtersOpen}
-              onClose={() => setFiltersOpen(false)}
-            />
-          </div>
-        )}
+        <div className="lg:hidden">
+          <SearchFilterSidebar {...sharedSidebarProps} isOpen={filtersOpen} onClose={() => setFiltersOpen(false)} />
+        </div>
 
         {/* Product grid */}
         <div className="flex-1 min-w-0">
@@ -266,8 +339,8 @@ export function BrandProductsClient({ brand }: { brand: BrandInfo }) {
                   : "grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
               }`}
             >
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {products.map((doc) => (
+                <ProductCard key={doc.id} product={toCardItem(doc)} />
               ))}
             </div>
           )}

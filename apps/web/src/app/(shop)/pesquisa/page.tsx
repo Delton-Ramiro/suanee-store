@@ -1,10 +1,21 @@
 "use client";
 
-import { useCallback, useState, useEffect, useTransition, Suspense } from "react";
+import {
+  useCallback,
+  useState,
+  useEffect,
+  useTransition,
+  Suspense,
+} from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { Search } from "lucide-react";
 import { useSearch, type SearchDocument } from "@/lib/hooks/useSearch";
 import { useCategoryTree } from "@/lib/hooks/useCategoryTree";
-import { useCategoryFilters, useAllBrands, useAllColors } from "@/lib/hooks/useCategoryFilters";
+import {
+  useCategoryFilters,
+  useAllBrands,
+  useAllColors,
+} from "@/lib/hooks/useCategoryFilters";
 import { ProductCard } from "@/components/products/ProductCard";
 import { SortBar } from "@/components/products/SortBar";
 import { Pagination } from "@/components/products/Pagination";
@@ -79,8 +90,12 @@ function readUrl(params: URLSearchParams): UrlState {
     brandIds: params.get("brand")?.split(",").filter(Boolean) ?? [],
     colorIds: params.get("color")?.split(",").filter(Boolean) ?? [],
     sizeIds: params.get("size")?.split(",").filter(Boolean) ?? [],
-    minPrice: params.get("minPrice") ? Number(params.get("minPrice")) : undefined,
-    maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : undefined,
+    minPrice: params.get("minPrice")
+      ? Number(params.get("minPrice"))
+      : undefined,
+    maxPrice: params.get("maxPrice")
+      ? Number(params.get("maxPrice"))
+      : undefined,
     attrFilters,
   };
 }
@@ -97,14 +112,25 @@ function buildUrl(
   if (q) params.set("q", q);
   if (page > 1) params.set("page", String(page));
   if (sort !== "newest") params.set("sort", sort);
-  if (cat.l0Slug) { params.set("cat0", cat.l0Slug); params.set("cat0Id", cat.l0Id!); }
-  if (cat.l1Slug) { params.set("cat1", cat.l1Slug); params.set("cat1Id", cat.l1Id!); }
-  if (cat.l2Slug) { params.set("cat2", cat.l2Slug); params.set("cat2Id", cat.l2Id!); }
+  if (cat.l0Slug) {
+    params.set("cat0", cat.l0Slug);
+    params.set("cat0Id", cat.l0Id!);
+  }
+  if (cat.l1Slug) {
+    params.set("cat1", cat.l1Slug);
+    params.set("cat1Id", cat.l1Id!);
+  }
+  if (cat.l2Slug) {
+    params.set("cat2", cat.l2Slug);
+    params.set("cat2Id", cat.l2Id!);
+  }
   if (filters.brandIds.length) params.set("brand", filters.brandIds.join(","));
   if (filters.colorIds.length) params.set("color", filters.colorIds.join(","));
   if (filters.sizeIds.length) params.set("size", filters.sizeIds.join(","));
-  if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
-  if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
+  if (filters.minPrice !== undefined)
+    params.set("minPrice", String(filters.minPrice));
+  if (filters.maxPrice !== undefined)
+    params.set("maxPrice", String(filters.maxPrice));
   for (const [defId, optIds] of Object.entries(filters.attrFilters)) {
     if (optIds.length) params.set(`attr-${defId}`, optIds.join(","));
   }
@@ -125,15 +151,18 @@ function PesquisaInner() {
 
   const [sort, setSort] = useState<Sort>(url.sort);
   const [page, setPage] = useState(url.page);
+  const [searchInput, setSearchInput] = useState(url.q);
 
-  const [categorySelection, setCategorySelection] = useState<CategorySelection>({
-    l0Slug: url.cat0,
-    l0Id: url.cat0Id,
-    l1Slug: url.cat1,
-    l1Id: url.cat1Id,
-    l2Slug: url.cat2,
-    l2Id: url.cat2Id,
-  });
+  const [categorySelection, setCategorySelection] = useState<CategorySelection>(
+    {
+      l0Slug: url.cat0,
+      l0Id: url.cat0Id,
+      l1Slug: url.cat1,
+      l1Id: url.cat1Id,
+      l2Slug: url.cat2,
+      l2Id: url.cat2Id,
+    },
+  );
 
   const [activeFilters, setActiveFilters] = useState<SearchActiveFilters>({
     brandIds: url.brandIds,
@@ -149,8 +178,23 @@ function PesquisaInner() {
     const s = readUrl(searchParams);
     setSort(s.sort);
     setPage(s.page);
-    setCategorySelection({ l0Slug: s.cat0, l0Id: s.cat0Id, l1Slug: s.cat1, l1Id: s.cat1Id, l2Slug: s.cat2, l2Id: s.cat2Id });
-    setActiveFilters({ brandIds: s.brandIds, colorIds: s.colorIds, sizeIds: s.sizeIds, minPrice: s.minPrice, maxPrice: s.maxPrice, attrFilters: s.attrFilters });
+    setSearchInput(s.q);
+    setCategorySelection({
+      l0Slug: s.cat0,
+      l0Id: s.cat0Id,
+      l1Slug: s.cat1,
+      l1Id: s.cat1Id,
+      l2Slug: s.cat2,
+      l2Id: s.cat2Id,
+    });
+    setActiveFilters({
+      brandIds: s.brandIds,
+      colorIds: s.colorIds,
+      sizeIds: s.sizeIds,
+      minPrice: s.minPrice,
+      maxPrice: s.maxPrice,
+      attrFilters: s.attrFilters,
+    });
   }, [searchParams]);
 
   // Data fetching
@@ -176,7 +220,11 @@ function PesquisaInner() {
     categorySelection.l0Id ??
     undefined;
 
-  const { data: searchData, isLoading, isFetching } = useSearch({
+  const {
+    data: searchData,
+    isLoading,
+    isFetching,
+  } = useSearch({
     q: url.q,
     page,
     perPage: PAGE_LIMIT,
@@ -218,7 +266,12 @@ function PesquisaInner() {
   }
 
   function handleResetAll() {
-    const emptyFilters: SearchActiveFilters = { brandIds: [], colorIds: [], sizeIds: [], attrFilters: {} };
+    const emptyFilters: SearchActiveFilters = {
+      brandIds: [],
+      colorIds: [],
+      sizeIds: [],
+      attrFilters: {},
+    };
     setCategorySelection(EMPTY_CAT_SELECTION);
     setActiveFilters(emptyFilters);
     setPage(1);
@@ -235,6 +288,24 @@ function PesquisaInner() {
     setSort(newSort);
     setPage(1);
     pushUrl(categorySelection, activeFilters, 1, newSort);
+  }
+
+  // Debounce: update results as the user types, preserving active filters
+  useEffect(() => {
+    if (searchInput.trim() === url.q.trim()) return;
+    const timer = setTimeout(() => {
+      const u = buildUrl(pathname, searchInput.trim(), categorySelection, activeFilters, 1, sort);
+      startTransition(() => router.push(u, { scroll: false }));
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (searchInput.trim() === url.q.trim()) return;
+    const u = buildUrl(pathname, searchInput.trim(), categorySelection, activeFilters, 1, sort);
+    startTransition(() => router.push(u, { scroll: false }));
   }
 
   function handlePage(newPage: number) {
@@ -256,36 +327,28 @@ function PesquisaInner() {
     activeFilters.maxPrice !== undefined ||
     Object.values(activeFilters.attrFilters).some((v) => v.length > 0);
 
-  const q = url.q;
-
   return (
     <div>
-      {/* Heading */}
-      <div className="mb-4">
-        <h1 className="font-inter font-medium text-2xl md:text-h2 text-black tracking-[0.02em] leading-none uppercase">
-          {q ? `"${q}"` : "Pesquisa"}
-        </h1>
-        {q && (
-          <p className="text-sm text-text-muted mt-1 hidden md:block">
-            Resultados para a sua pesquisa. Use os filtros para refinar.
-          </p>
-        )}
+      {/* Search input — continuation from the overlay */}
+      <div className="flex justify-end mb-8 mt-8">
+        <form onSubmit={handleSearchSubmit} className="w-64">
+          <div className="flex items-center gap-2">
+            <Search size={13} className="text-brand/35 shrink-0" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="O que procura?"
+              autoComplete="off"
+              className="flex-1 min-w-0 bg-transparent text-sm text-brand placeholder:text-brand/35 outline-none"
+            />
+          </div>
+          <div className="h-px bg-brand/15 mt-1.5" />
+        </form>
       </div>
 
-      {/* No query state */}
-      {!q && (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-lg font-medium text-brand">Escreva algo para pesquisar</p>
-          <p className="text-sm text-text-muted mt-1">
-            Pode pesquisar por nome de produto, marca ou categoria.
-          </p>
-        </div>
-      )}
-
-      {q && (
-        <>
-          {/* Sort bar */}
-          <SortBar
+      {/* Sort bar */}
+      <SortBar
             total={total}
             page={page}
             limit={PAGE_LIMIT}
@@ -308,7 +371,9 @@ function PesquisaInner() {
                 categoryTree={categoryTree ?? []}
                 categorySelection={categorySelection}
                 onCategoryChange={handleCategoryChange}
-                available={filterCategorySlug ? (categoryFilters ?? null) : null}
+                available={
+                  filterCategorySlug ? (categoryFilters ?? null) : null
+                }
                 globalBrands={globalBrands}
                 globalColors={globalColors}
                 active={activeFilters}
@@ -325,7 +390,9 @@ function PesquisaInner() {
                 categoryTree={categoryTree ?? []}
                 categorySelection={categorySelection}
                 onCategoryChange={handleCategoryChange}
-                available={filterCategorySlug ? (categoryFilters ?? null) : null}
+                available={
+                  filterCategorySlug ? (categoryFilters ?? null) : null
+                }
                 globalBrands={globalBrands}
                 globalColors={globalColors}
                 active={activeFilters}
@@ -341,7 +408,10 @@ function PesquisaInner() {
               {isLoading ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-1.25 gap-y-6">
                   {Array.from({ length: PAGE_LIMIT }).map((_, i) => (
-                    <div key={i} className="skeleton rounded-[10px] aspect-3/4" />
+                    <div
+                      key={i}
+                      className="skeleton rounded-[10px] aspect-3/4"
+                    />
                   ))}
                 </div>
               ) : products.length === 0 ? (
@@ -376,8 +446,6 @@ function PesquisaInner() {
               />
             </div>
           </div>
-        </>
-      )}
     </div>
   );
 }
