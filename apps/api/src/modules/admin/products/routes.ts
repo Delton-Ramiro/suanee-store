@@ -576,6 +576,7 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
               },
             },
           },
+          tags: { type: "array", items: { type: "string" } },
         },
       },
       response: {
@@ -789,6 +790,7 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
           returnPolicy: { type: "string", nullable: true },
           media: { type: "array", items: { type: "object" } },
           attributes: { type: "array", items: { type: "object" } },
+          tags: { type: "array", items: { type: "string" } },
         },
       },
       response: {

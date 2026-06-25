@@ -472,6 +472,7 @@ model Product {
   supplierLink       String?
   mainColorId        String?
   genderScope        GenderScope?
+  tags               String[]      @default([])
   metaTitle          String?       @db.VarChar(60)
   metaDescription    String?       @db.VarChar(160)
   createdAt          DateTime      @default(now())

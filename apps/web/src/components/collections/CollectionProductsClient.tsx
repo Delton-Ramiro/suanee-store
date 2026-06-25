@@ -6,7 +6,7 @@ import { useCollectionProducts } from "@/lib/hooks/useCollectionProducts";
 import { useCollectionFilters } from "@/lib/hooks/useCollectionFilters";
 import { ProductCard } from "@/components/products/ProductCard";
 import { FilterSidebar, type ActiveFilters } from "@/components/products/FilterSidebar";
-import { SortBar } from "@/components/products/SortBar";
+import { SortBar, SORT_VALUES, type Sort } from "@/components/products/SortBar";
 import { Pagination } from "@/components/products/Pagination";
 
 type CollectionInfo = {
@@ -22,14 +22,12 @@ const PAGE_LIMIT = 24;
 
 function readFromUrl(params: URLSearchParams): ActiveFilters & {
   page: number;
-  sort: "newest" | "price_asc" | "price_desc";
+  sort: Sort;
 } {
   const sort = params.get("sort");
   return {
     page: Math.max(1, Number(params.get("page") ?? 1)),
-    sort: (["newest", "price_asc", "price_desc"].includes(sort ?? "")
-      ? sort
-      : "newest") as "newest" | "price_asc" | "price_desc",
+    sort: ((SORT_VALUES as readonly string[]).includes(sort ?? "") ? sort : "newest") as Sort,
     brand: params.get("brand")?.split(",").filter(Boolean) ?? [],
     color: params.get("color")?.split(",").filter(Boolean) ?? [],
     size: params.get("size")?.split(",").filter(Boolean) ?? [],
@@ -136,7 +134,7 @@ export function CollectionProductsClient({
     pushUrl(clean, 1, sort);
   }
 
-  function handleSort(newSort: "newest" | "price_asc" | "price_desc") {
+  function handleSort(newSort: Sort) {
     setSort(newSort);
     setPage(1);
     pushUrl(activeFilters, 1, newSort);

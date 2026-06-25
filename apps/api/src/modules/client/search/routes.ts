@@ -8,7 +8,7 @@ const SearchQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   perPage: z.coerce.number().int().min(1).max(100).default(24),
   sort: z
-    .enum(["newest", "price_asc", "price_desc", "popular"])
+    .enum(["newest", "price_asc", "price_desc", "discount", "popular", "brand_asc", "brand_desc"])
     .default("newest"),
   /** Legacy single-brand filter — kept for backward compat */
   brandId: z.string().optional(),
@@ -24,12 +24,15 @@ const SearchQuery = z.object({
   inStock: z.coerce.boolean().optional(),
 });
 
-const SORT_MAP = {
-  newest: { createdAt: "desc" as const },
-  price_asc: { basePrice: "asc" as const },
+const SORT_MAP: Record<string, object> = {
+  newest:     { createdAt: "desc" as const },
+  price_asc:  { basePrice: "asc" as const },
   price_desc: { basePrice: "desc" as const },
-  popular: { orderItems: { _count: "desc" as const } },
-} as const;
+  discount:   [{ hasDiscount: "desc" as const }, { discountPrice: "asc" as const }],
+  popular:    { orderItems: { _count: "desc" as const } },
+  brand_asc:  { brand: { name: "asc" as const } },
+  brand_desc: { brand: { name: "desc" as const } },
+};
 
 export default async function clientSearchRoutes(fastify: FastifyInstance) {
   // GET /search
@@ -46,7 +49,7 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
           perPage: { type: "integer", default: 24, maximum: 100 },
           sort: {
             type: "string",
-            enum: ["newest", "price_asc", "price_desc", "popular"],
+            enum: ["newest", "price_asc", "price_desc", "discount", "popular", "brand_asc", "brand_desc"],
             default: "newest",
           },
           brandId: { type: "string" },
@@ -109,6 +112,10 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
           ).map((b) => b.id)
         : [];
 
+      const searchWords = hasQuery
+        ? q.q.toLowerCase().trim().split(/\s+/).filter(Boolean)
+        : [];
+
       // Base where clause (text match + all active filters)
       const baseWhere: Prisma.ProductWhereInput = {
         status: "published" as const,
@@ -121,6 +128,7 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
                 ...(brandIdsFromText.length
                   ? [{ brandId: { in: brandIdsFromText } }]
                   : []),
+                ...(searchWords.length ? [{ tags: { hasSome: searchWords } }] : []),
               ],
             }
           : {}),

@@ -11,7 +11,7 @@ import {
   type BrandOption,
 } from "@/lib/hooks/useCategoryFilters";
 import { ProductCard } from "@/components/products/ProductCard";
-import { SortBar } from "@/components/products/SortBar";
+import { SortBar, SORT_VALUES, type Sort } from "@/components/products/SortBar";
 import { Pagination } from "@/components/products/Pagination";
 import {
   SearchFilterSidebar,
@@ -30,7 +30,6 @@ type BrandInfo = {
 };
 
 const PAGE_LIMIT = 24;
-type Sort = "newest" | "price_asc" | "price_desc";
 
 function toCardItem(doc: SearchDocument) {
   return {
@@ -72,7 +71,7 @@ function readUrl(params: URLSearchParams): UrlState {
   return {
     q: params.get("q") ?? "",
     page: Math.max(1, Number(params.get("page") ?? 1)),
-    sort: (["newest", "price_asc", "price_desc"].includes(sort ?? "") ? sort : "newest") as Sort,
+    sort: ((SORT_VALUES as readonly string[]).includes(sort ?? "") ? sort : "newest") as Sort,
     cat0: params.get("cat0") ?? null, cat0Id: params.get("cat0Id") ?? null,
     cat1: params.get("cat1") ?? null, cat1Id: params.get("cat1Id") ?? null,
     cat2: params.get("cat2") ?? null, cat2Id: params.get("cat2Id") ?? null,

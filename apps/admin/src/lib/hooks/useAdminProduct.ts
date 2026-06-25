@@ -71,6 +71,7 @@ export type AdminProductDetail = {
     collectionFilterId: string;
     collectionFilterOptionId: string;
   }[];
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -104,6 +105,7 @@ export type CreateProductPayload = {
     collectionFilterId: string;
     collectionFilterOptionIds: string[];
   }[];
+  tags?: string[];
   variants?: {
     colorId: string;
     sizeId: string;

@@ -39,7 +39,7 @@ export type ProductsPage = {
 export type ProductFilters = {
   page?: number;
   limit?: number;
-  sort?: "newest" | "price_asc" | "price_desc";
+  sort?: "newest" | "price_asc" | "price_desc" | "discount" | "popular" | "brand_asc" | "brand_desc";
   /** Comma-separated brand IDs */
   brand?: string;
   minPrice?: number;

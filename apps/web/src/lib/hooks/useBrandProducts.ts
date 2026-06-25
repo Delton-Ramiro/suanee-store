@@ -7,7 +7,7 @@ import type { ProductsPage } from "./useProducts";
 export type BrandProductFilters = {
   page?: number;
   limit?: number;
-  sort?: "newest" | "price_asc" | "price_desc";
+  sort?: "newest" | "price_asc" | "price_desc" | "discount" | "popular" | "brand_asc" | "brand_desc";
   cats?: string;
   color?: string;
   size?: string;

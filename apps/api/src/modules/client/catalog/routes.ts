@@ -1,14 +1,29 @@
 import type { FastifyInstance } from "fastify";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../../lib/prisma.js";
 import { getCategoryDescendantIds } from "../../../lib/category-tree.js";
 import { CacheKeys, cacheGet, cacheSet } from "../../../lib/redis.js";
 import { offsetPaginate } from "../../../lib/utils.js";
 
+const SORT_VALUES = ["newest", "price_asc", "price_desc", "discount", "popular", "brand_asc", "brand_desc"] as const;
+
+function getOrderBy(sort: string) {
+  switch (sort) {
+    case "price_asc":  return { basePrice: "asc" as const };
+    case "price_desc": return { basePrice: "desc" as const };
+    case "discount":   return [{ hasDiscount: "desc" as const }, { discountPrice: "asc" as const }];
+    case "popular":    return { orderItems: { _count: "desc" as const } };
+    case "brand_asc":  return { brand: { name: "asc" as const } };
+    case "brand_desc": return { brand: { name: "desc" as const } };
+    default:           return { createdAt: "desc" as const };
+  }
+}
+
 const ProductListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(24),
-  sort: z.enum(["newest", "price_asc", "price_desc"]).default("newest"),
+  sort: z.enum(SORT_VALUES).default("newest"),
   /** Comma-separated brand IDs */
   brand: z.string().optional(),
   minPrice: z.coerce.number().optional(),
@@ -22,6 +37,8 @@ const ProductListQuery = z.object({
   // attr-{attrDefId}=optId1,optId2 params are parsed separately from raw query
   /** Comma-separated collection filter option IDs — OR logic across all selections */
   cf: z.string().optional(),
+  /** Single tag to filter products */
+  tag: z.string().optional(),
 });
 
 export default async function clientCatalogRoutes(fastify: FastifyInstance) {
@@ -228,7 +245,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           limit: { type: "integer", default: 24 },
           sort: {
             type: "string",
-            enum: ["newest", "price_asc", "price_desc"],
+            enum: ["newest", "price_asc", "price_desc", "discount", "popular", "brand_asc", "brand_desc"],
             default: "newest",
           },
           brand: { type: "string", description: "Comma-separated brand IDs" },
@@ -312,12 +329,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       const colorIds = q.color?.split(",").filter(Boolean) ?? [];
       const sizeIds = q.size?.split(",").filter(Boolean) ?? [];
 
-      const orderBy =
-        q.sort === "price_asc"
-          ? { basePrice: "asc" as const }
-          : q.sort === "price_desc"
-            ? { basePrice: "desc" as const }
-            : { createdAt: "desc" as const };
+      const orderBy = getOrderBy(q.sort);
 
       const productWhere = {
         status: "published" as const,
@@ -338,6 +350,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         ...(sizeIds.length
           ? { sizes: { some: { sizeId: { in: sizeIds } } } }
           : {}),
+        ...(q.tag ? { tags: { has: q.tag } } : {}),
         // Each attribute filter is an AND condition (product must satisfy all selected defs)
         // Within each def, options are OR (any matching option satisfies that filter)
         ...(attrFilters.length
@@ -619,7 +632,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         properties: {
           page: { type: "integer", default: 1 },
           limit: { type: "integer", default: 24 },
-          sort: { type: "string", enum: ["newest", "price_asc", "price_desc"], default: "newest" },
+          sort: { type: "string", enum: ["newest", "price_asc", "price_desc", "discount", "popular", "brand_asc", "brand_desc"], default: "newest" },
           cat: { type: "string", description: "Comma-separated category slugs at any level" },
           color: { type: "string", description: "Comma-separated color IDs" },
           size: { type: "string", description: "Comma-separated size IDs" },
@@ -648,12 +661,13 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       const BrandProductQuery = z.object({
         page: z.coerce.number().int().min(1).default(1),
         limit: z.coerce.number().int().min(1).max(100).default(24),
-        sort: z.enum(["newest", "price_asc", "price_desc"]).default("newest"),
+        sort: z.enum(SORT_VALUES).default("newest"),
         cat: z.string().optional(),
         color: z.string().optional(),
         size: z.string().optional(),
         minPrice: z.coerce.number().optional(),
         maxPrice: z.coerce.number().optional(),
+        tag: z.string().optional(),
       });
 
       const parsed = BrandProductQuery.safeParse(req.query);
@@ -698,12 +712,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         }
       }
 
-      const orderBy =
-        q.sort === "price_asc"
-          ? { basePrice: "asc" as const }
-          : q.sort === "price_desc"
-            ? { basePrice: "desc" as const }
-            : { createdAt: "desc" as const };
+      const orderBy = getOrderBy(q.sort);
 
       const where = {
         brandId: brand.id,
@@ -720,6 +729,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
               },
             }
           : {}),
+        ...(q.tag ? { tags: { has: q.tag } } : {}),
         ...(attrGroupConditions.length > 0 ? { AND: attrGroupConditions } : {}),
       };
 
@@ -1176,7 +1186,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           limit: { type: "integer", default: 24 },
           sort: {
             type: "string",
-            enum: ["newest", "price_asc", "price_desc"],
+            enum: ["newest", "price_asc", "price_desc", "discount", "popular", "brand_asc", "brand_desc"],
             default: "newest",
           },
           brand: { type: "string" },
@@ -1221,12 +1231,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       const colorIds = q.color?.split(",").filter(Boolean) ?? [];
       const sizeIds = q.size?.split(",").filter(Boolean) ?? [];
       const cfOptionIds = q.cf?.split(",").filter(Boolean) ?? [];
-      const orderBy =
-        q.sort === "price_asc"
-          ? { basePrice: "asc" as const }
-          : q.sort === "price_desc"
-            ? { basePrice: "desc" as const }
-            : { createdAt: "desc" as const };
+      const orderBy = getOrderBy(q.sort);
 
       // Build variant sub-conditions separately to avoid duplicate object keys
       // when both color and size are filtered (both live on ProductVariant).
@@ -1248,6 +1253,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
               },
             }
           : {}),
+        ...(q.tag ? { tags: { has: q.tag } } : {}),
         ...(variantFilters.length > 0 ? { AND: variantFilters } : {}),
         // Collection filter options: OR across all selected option IDs
         ...(cfOptionIds.length
@@ -1308,6 +1314,42 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       });
 
       return reply.send(offsetPaginate(mappedProducts, total, q.page, q.limit));
+    },
+  });
+
+  // GET /catalog/tags/suggest?q= — autocomplete for product tags
+  fastify.get("/tags/suggest", {
+    schema: {
+      tags: ["Catalog"],
+      description: "Returns up to 10 distinct product tags matching the prefix query.",
+      querystring: {
+        type: "object",
+        properties: { q: { type: "string" } },
+      },
+      response: {
+        200: { description: "Matching tags", type: "array", items: { type: "string" } },
+      },
+    },
+    handler: async (req, reply) => {
+      const { q } = z.object({ q: z.string().default("") }).parse(req.query);
+      const prefix = q.toLowerCase().trim();
+
+      const rows = await prisma.$queryRaw<{ tag: string }[]>(
+        prefix
+          ? Prisma.sql`
+              SELECT DISTINCT tag
+              FROM (SELECT UNNEST(tags) AS tag FROM products) t
+              WHERE lower(tag) LIKE ${prefix + "%"}
+              LIMIT 10
+            `
+          : Prisma.sql`
+              SELECT DISTINCT tag
+              FROM (SELECT UNNEST(tags) AS tag FROM products) t
+              WHERE tag IS NOT NULL AND tag != ''
+              LIMIT 10
+            `,
+      );
+      return reply.send(rows.map((r) => r.tag));
     },
   });
 

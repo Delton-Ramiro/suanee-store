@@ -22,6 +22,7 @@ import { useFilters, type Filter } from "@/lib/hooks/useFilters";
 import { type CollectionFilter } from "@/lib/hooks/useCollectionFilters";
 import { useCurrencyRates } from "@/lib/hooks/useCurrency";
 import Toggle from "@/components/ui/Toggle";
+import TagInput from "@/components/ui/TagInput";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import ApiSearchSelect from "@/components/ui/ApiSearchSelect";
 import MultiSelectDropdown from "@/components/ui/MultiSelectDropdown";
@@ -239,6 +240,7 @@ export default function ProductEditPage({
   /* ── Left panel state ──────────────────────────────────────────────────── */
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [basePrice, setBasePrice] = useState("");
   const [isIndicativePrice, setIsIndicativePrice] = useState(false);
   const [hasDiscount, setHasDiscount] = useState(false);
@@ -380,6 +382,7 @@ export default function ProductEditPage({
     if (!product) return;
     setName(product.name);
     setDescription(product.description ?? "");
+    setTags(product.tags ?? []);
     setBasePrice(String(product.basePrice));
     setIsIndicativePrice(product.isIndicativePrice);
     setHasDiscount(product.hasDiscount);
@@ -1148,6 +1151,7 @@ export default function ProductEditPage({
       name: name.trim(),
       slug: slugify(name.trim()),
       description: description || undefined,
+      tags,
       brandId,
       basePrice: bp,
       isIndicativePrice,
@@ -1452,6 +1456,17 @@ export default function ProductEditPage({
                   placeholder="Descreva o produto…"
                   rows={5}
                 />
+              </div>
+              <div>
+                <FieldLabel>Tags de pesquisa</FieldLabel>
+                <TagInput
+                  value={tags}
+                  onChange={setTags}
+                  disabled={!canEditProduct}
+                />
+                <p className="mt-1.5 text-xs text-text-muted font-figtree">
+                  Prima Enter ou vírgula para adicionar. Os utilizadores encontram este produto ao pesquisar estas palavras.
+                </p>
               </div>
             </div>
 

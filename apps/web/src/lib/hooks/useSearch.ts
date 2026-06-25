@@ -32,7 +32,7 @@ export type SearchParams = {
   q: string;
   page?: number;
   perPage?: number;
-  sort?: "newest" | "price_asc" | "price_desc";
+  sort?: "newest" | "price_asc" | "price_desc" | "discount" | "popular" | "brand_asc" | "brand_desc";
   categoryId?: string;
   /** Comma-separated brand IDs */
   brandIds?: string;
