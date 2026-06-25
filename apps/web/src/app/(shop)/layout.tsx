@@ -6,6 +6,7 @@ import { OrdersDrawer } from "@/components/OrdersDrawer";
 import { SearchOverlay } from "@/components/SearchOverlay";
 import { LoginModal } from "@/components/LoginModal";
 import { ClientChatPanel } from "@/components/ClientChatPanel";
+import { ChatFab } from "@/components/ChatFab";
 import SiteTopBar from "@/components/SiteTopBar";
 
 export default function ShopLayout({
@@ -26,6 +27,7 @@ export default function ShopLayout({
       <SearchOverlay />
       <LoginModal />
       <ClientChatPanel />
+      <ChatFab />
       <CartDrawer />
       <FavoritesDrawer />
       <OrdersDrawer />
