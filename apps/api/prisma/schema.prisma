@@ -258,8 +258,9 @@ model Collection {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  category Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  products ProductCollection[]
+  category          Category?                    @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  products          ProductCollection[]
+  collectionFilters CollectionFilterCollection[]
 
   @@index([categoryId])
   @@map("collections")
@@ -275,6 +276,50 @@ model ProductCollection {
   @@id([productId, collectionId])
   @@index([collectionId, productId])
   @@map("product_collections")
+}
+
+// ─── Collection Filters ───────────────────────────────────────────────────────
+
+model CollectionFilter {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String
+  inputType InputType @default(multi_select)
+  position  Int       @default(0)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  collections CollectionFilterCollection[]
+  options     CollectionFilterOption[]
+
+  @@index([slug])
+  @@map("collection_filters")
+}
+
+model CollectionFilterCollection {
+  collectionFilterId String
+  collectionId       String
+
+  filter     CollectionFilter @relation(fields: [collectionFilterId], references: [id], onDelete: Cascade)
+  collection Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@id([collectionFilterId, collectionId])
+  @@index([collectionId, collectionFilterId])
+  @@map("collection_filter_collections")
+}
+
+model CollectionFilterOption {
+  id                 String @id @default(uuid())
+  collectionFilterId String
+  label              String
+  value              String
+  position           Int    @default(0)
+
+  filter CollectionFilter @relation(fields: [collectionFilterId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionFilterId, value])
+  @@map("collection_filter_options")
 }
 
 // ─── Colors ──────────────────────────────────────────────────────────────────

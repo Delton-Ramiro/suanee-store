@@ -19,6 +19,7 @@ import adminBrandsRoutes from "./modules/admin/brands/routes.js";
 import adminColorsRoutes from "./modules/admin/colors/routes.js";
 import adminSizesRoutes from "./modules/admin/sizes/routes.js";
 import adminFiltersRoutes from "./modules/admin/filters/routes.js";
+import adminCollectionFiltersRoutes from "./modules/admin/collection-filters/routes.js";
 import adminCollectionsRoutes from "./modules/admin/collections/routes.js";
 import adminStoriesRoutes from "./modules/admin/stories/routes.js";
 import adminMostSearchedRoutes from "./modules/admin/most-searched/routes.js";
@@ -129,6 +130,9 @@ export async function buildApp() {
   await app.register(adminColorsRoutes, { prefix: `${API}/admin/colors` });
   await app.register(adminSizesRoutes, { prefix: `${API}/admin/sizes` });
   await app.register(adminFiltersRoutes, { prefix: `${API}/admin/filters` });
+  await app.register(adminCollectionFiltersRoutes, {
+    prefix: `${API}/admin/collection-filters`,
+  });
   await app.register(adminCollectionsRoutes, {
     prefix: `${API}/admin/collections`,
   });
