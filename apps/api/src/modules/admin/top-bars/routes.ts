@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../../../lib/prisma.js";
 import {
-  CreatePopupModalSchema,
-  UpdatePopupModalSchema,
+  CreateTopBarSchema,
+  UpdateTopBarSchema,
   Permissions,
 } from "@ecommerce/types";
 import { audit } from "../../../lib/audit.js";
@@ -16,14 +16,12 @@ const QuerySchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
-export default async function adminPopupModalsRoutes(
-  fastify: FastifyInstance,
-) {
-  // GET /admin/popup-modals
+export default async function adminTopBarsRoutes(fastify: FastifyInstance) {
+  // GET /admin/top-bars
   fastify.get("/", {
     preHandler: [fastify.authenticateAdmin],
     schema: {
-      tags: ["Admin Popup Modals"],
+      tags: ["Admin Top Bars"],
       security: [{ bearerAuth: [] }],
       querystring: {
         type: "object",
@@ -49,11 +47,11 @@ export default async function adminPopupModalsRoutes(
     handler: async (req, reply) => {
       const q = QuerySchema.parse(req.query);
       const where = q.search
-        ? { name: { contains: q.search, mode: "insensitive" as const } }
+        ? { text: { contains: q.search, mode: "insensitive" as const } }
         : {};
       const [total, items] = await Promise.all([
-        prisma.popupModal.count({ where }),
-        prisma.popupModal.findMany({
+        prisma.topBar.count({ where }),
+        prisma.topBar.findMany({
           where,
           skip: (q.page - 1) * q.limit,
           take: q.limit,
@@ -64,48 +62,46 @@ export default async function adminPopupModalsRoutes(
     },
   });
 
-  // POST /admin/popup-modals
+  // POST /admin/top-bars
   fastify.post("/", {
     preHandler: [fastify.requirePermission(Permissions.POPUP_MODALS_EDIT)],
     schema: {
-      tags: ["Admin Popup Modals"],
+      tags: ["Admin Top Bars"],
       security: [{ bearerAuth: [] }],
       body: {
         type: "object",
-        required: ["name", "imageUrl"],
+        required: ["text"],
         properties: {
-          name: { type: "string" },
-          imageUrl: { type: "string" },
-          redirectUrl: { type: ["string", "null"] },
+          text: { type: "string" },
+          linkUrl: { type: ["string", "null"] },
+          linkLabel: { type: ["string", "null"] },
+          timerMode: { type: ["string", "null"] },
+          timerSeconds: { type: ["integer", "null"] },
+          timerDeadline: { type: ["string", "null"] },
           isActive: { type: "boolean", default: false },
         },
       },
       response: { 201: { type: "object" } },
     },
     handler: async (req, reply) => {
-      const body = CreatePopupModalSchema.parse(req.body);
-      const modal = await prisma.$transaction(async (tx) => {
-        if (body.isActive) {
-          await tx.popupModal.updateMany({ data: { isActive: false } });
-        }
-        return tx.popupModal.create({ data: body });
-      });
+      const body = CreateTopBarSchema.parse(req.body);
+      const bar = await prisma.topBar.create({ data: body as never });
       await audit({
         adminId: req.user.sub,
-        action: "popup_modal.created",
-        resourceType: "popup_modal",
-        resourceId: modal.id,
+        action: "top_bar.created",
+        resourceType: "top_bar",
+        resourceId: bar.id,
         after: body,
       });
-      return reply.status(201).send(modal);
+      return reply.status(201).send(bar);
     },
   });
 
-  // PATCH /admin/popup-modals/:id
+  // PATCH /admin/top-bars/:id
   fastify.patch<{ Params: { id: string } }>("/:id", {
     preHandler: [fastify.requirePermission(Permissions.POPUP_MODALS_EDIT)],
     schema: {
-      tags: ["Admin Popup Modals"],
+      tags: ["Admin Top Bars"],
       security: [{ bearerAuth: [] }],
       params: {
         type: "object",
@@ -115,9 +111,12 @@ export default async function adminPopupModalsRoutes(
       body: {
         type: "object",
         properties: {
-          name: { type: "string" },
-          imageUrl: { type: "string" },
-          redirectUrl: { type: ["string", "null"] },
+          text: { type: "string" },
+          linkUrl: { type: ["string", "null"] },
+          linkLabel: { type: ["string", "null"] },
+          timerMode: { type: ["string", "null"] },
+          timerSeconds: { type: ["integer", "null"] },
+          timerDeadline: { type: ["string", "null"] },
           isActive: { type: "boolean" },
         },
       },
@@ -127,56 +126,48 @@ export default async function adminPopupModalsRoutes(
       },
     },
     handler: async (req, reply) => {
-      const body = UpdatePopupModalSchema.parse(req.body);
-      const before = await prisma.popupModal.findUnique({
+      const body = UpdateTopBarSchema.parse(req.body);
+      const before = await prisma.topBar.findUnique({
         where: { id: req.params.id },
       });
-      if (!before) return reply.status(404).send({ error: "Modal not found" });
+      if (!before) return reply.status(404).send({ error: "Top bar not found" });
 
-      const modal = await prisma.$transaction(async (tx) => {
-        if (body.isActive) {
-          await tx.popupModal.updateMany({
-            where: { id: { not: req.params.id } },
-            data: { isActive: false },
-          });
-        }
-        return tx.popupModal.update({
-          where: { id: req.params.id },
-          data: body,
-        });
+      const bar = await prisma.topBar.update({
+        where: { id: req.params.id },
+        data: body as never,
       });
 
       await audit({
         adminId: req.user.sub,
-        action: "popup_modal.updated",
-        resourceType: "popup_modal",
+        action: "top_bar.updated",
+        resourceType: "top_bar",
         resourceId: req.params.id,
         before,
         after: body,
       });
-      return reply.send(modal);
+      return reply.send(bar);
     },
   });
 
-  // DELETE /admin/popup-modals/:id
+  // DELETE /admin/top-bars/:id
   fastify.delete<{ Params: { id: string } }>("/:id", {
     preHandler: [fastify.requirePermission(Permissions.POPUP_MODALS_EDIT)],
     schema: {
-      tags: ["Admin Popup Modals"],
+      tags: ["Admin Top Bars"],
       security: [{ bearerAuth: [] }],
       params: {
         type: "object",
         required: ["id"],
         properties: { id: { type: "string", format: "uuid" } },
       },
-      response: { 204: { description: "Modal deleted" } },
+      response: { 204: { description: "Top bar deleted" } },
     },
     handler: async (req, reply) => {
-      await prisma.popupModal.delete({ where: { id: req.params.id } });
+      await prisma.topBar.delete({ where: { id: req.params.id } });
       await audit({
         adminId: req.user.sub,
-        action: "popup_modal.deleted",
-        resourceType: "popup_modal",
+        action: "top_bar.deleted",
+        resourceType: "top_bar",
         resourceId: req.params.id,
       });
       return reply.status(204).send();

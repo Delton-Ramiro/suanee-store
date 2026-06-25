@@ -1325,4 +1325,19 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       return reply.send(modal);
     },
   });
+
+  // GET /catalog/top-bars/active
+  fastify.get("/top-bars/active", {
+    schema: {
+      tags: ["Client Catalog"],
+      response: { 200: { type: "array", items: { type: "object" } } },
+    },
+    handler: async (_req, reply) => {
+      const bars = await prisma.topBar.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: "asc" },
+      });
+      return reply.send(bars);
+    },
+  });
 }

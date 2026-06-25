@@ -92,8 +92,8 @@ const STRUCTURE_ITEMS = [
     permission: Permissions.CURRENCY_EDIT,
   },
   {
-    href: "/modals",
-    label: "Modais",
+    href: "/anuncios",
+    label: "Anúncios",
     icon: MonitorPlay,
     permission: Permissions.POPUP_MODALS_EDIT,
   },

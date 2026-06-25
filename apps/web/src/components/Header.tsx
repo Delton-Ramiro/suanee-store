@@ -126,7 +126,7 @@ export default function Header() {
   return (
     <>
       {/* ── Desktop / Tablet nav ─────────────────────────────── */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-nav h-[98px]">
+      <header className="fixed left-0 right-0 z-50 bg-white shadow-nav h-[98px]" style={{ top: "var(--topbar-h, 0px)" }}>
         <div className="container-web h-full flex items-center gap-4">
           {/* Left — logo */}
           <Link
@@ -260,12 +260,12 @@ export default function Header() {
         <div className="hidden md:block">
           {/* Dark backdrop — covers page below the menu */}
           <div
-            className="fixed top-[98px] inset-x-0 bottom-0 z-30 bg-black/30 animate-[fade-in_0.2s_ease_both]"
+            className="fixed inset-x-0 bottom-0 z-30 bg-black/30 animate-[fade-in_0.2s_ease_both]" style={{ top: "calc(98px + var(--topbar-h, 0px))" }}
             onClick={() => setOpenCategoryId(null)}
           />
           {/* Panel */}
           <div
-            className="fixed top-[98px] left-0 right-0 z-40"
+            className="fixed left-0 right-0 z-40" style={{ top: "calc(98px + var(--topbar-h, 0px))" }}
             onMouseEnter={cancelClose}
             onMouseLeave={scheduleClose}
           >
@@ -287,7 +287,7 @@ export default function Header() {
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
-          <div className="fixed top-[98px] left-0 right-0 z-50 bg-white border-t border-border md:hidden shadow-nav">
+          <div className="fixed left-0 right-0 z-50 bg-white border-t border-border md:hidden shadow-nav" style={{ top: "calc(98px + var(--topbar-h, 0px))" }}>
             <div className="container-web py-6 flex flex-col gap-4">
               {/* First-level categories */}
               {categories.length > 0 && (
