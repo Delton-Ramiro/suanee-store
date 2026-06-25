@@ -235,8 +235,7 @@ export default async function adminCollectionFiltersRoutes(
       if (!before)
         return reply.status(404).send({ error: "Collection filter not found" });
 
-      try {
-        await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx) => {
           if (collectionIds !== undefined) {
             await tx.collectionFilterCollection.deleteMany({
               where: { collectionFilterId: req.params.id },
@@ -309,9 +308,6 @@ export default async function adminCollectionFiltersRoutes(
           after: body,
         });
         return reply.send(filter);
-      } catch (err: any) {
-        throw err;
-      }
     },
   });
 

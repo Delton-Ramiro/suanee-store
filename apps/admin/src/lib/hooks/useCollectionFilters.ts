@@ -21,7 +21,7 @@ export type CollectionFilter = {
   id: string;
   name: string;
   slug: string;
-  inputType: "select" | "multi_select" | "boolean";
+  inputType: "multi_select" | "single_select" | "range" | "boolean";
   isActive: boolean;
   position: number;
   createdAt: string;
