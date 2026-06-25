@@ -39,11 +39,19 @@ export type BrandOption = {
   logoUrl: string | null;
 };
 
+export type CollectionFilterItem = {
+  id: string;
+  name: string;
+  slug: string;
+  options: { id: string; label: string; value: string }[];
+};
+
 export type CategoryFilters = {
   filters: AttributeFilter[];
   colors: ColorOption[];
   sizes: SizeOption[];
   brands: BrandOption[];
+  collectionFilters?: CollectionFilterItem[];
 };
 
 export function useAllColors() {

@@ -20,6 +20,8 @@ const ProductListQuery = z.object({
   /** Comma-separated child-category slugs to restrict search to specific sub-categories */
   subcats: z.string().optional(),
   // attr-{attrDefId}=optId1,optId2 params are parsed separately from raw query
+  /** Comma-separated collection filter option IDs — OR logic across all selections */
+  cf: z.string().optional(),
 });
 
 export default async function clientCatalogRoutes(fastify: FastifyInstance) {
@@ -1065,7 +1067,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
         isVisible: true,
       };
 
-      const [brands, colors, sizes] = await Promise.all([
+      const [brands, colors, sizes, collectionFilters] = await Promise.all([
         prisma.brand.findMany({
           where: { products: { some: productScope } },
           orderBy: { name: "asc" },
@@ -1082,9 +1084,25 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           orderBy: { position: "asc" },
           select: { id: true, name: true, label: true, sizeSystem: true },
         }),
+        prisma.collectionFilter.findMany({
+          where: {
+            collections: { some: { collectionId: collection.id } },
+            isActive: true,
+          },
+          orderBy: { position: "asc" },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            options: {
+              orderBy: { position: "asc" },
+              select: { id: true, label: true, value: true },
+            },
+          },
+        }),
       ]);
 
-      return reply.send({ brands, colors, sizes });
+      return reply.send({ brands, colors, sizes, collectionFilters });
     },
   });
 
@@ -1202,6 +1220,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
       const brandIds = q.brand?.split(",").filter(Boolean) ?? [];
       const colorIds = q.color?.split(",").filter(Boolean) ?? [];
       const sizeIds = q.size?.split(",").filter(Boolean) ?? [];
+      const cfOptionIds = q.cf?.split(",").filter(Boolean) ?? [];
       const orderBy =
         q.sort === "price_asc"
           ? { basePrice: "asc" as const }
@@ -1230,6 +1249,14 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
             }
           : {}),
         ...(variantFilters.length > 0 ? { AND: variantFilters } : {}),
+        // Collection filter options: OR across all selected option IDs
+        ...(cfOptionIds.length
+          ? {
+              collectionFilterAttributes: {
+                some: { collectionFilterOptionId: { in: cfOptionIds } },
+              },
+            }
+          : {}),
       };
 
       const skip = (q.page - 1) * q.limit;

@@ -60,6 +60,7 @@ function readFiltersFromUrl(params: URLSearchParams): ActiveFilters & {
       ? Number(params.get("maxPrice"))
       : undefined,
     attrFilters,
+    cfOptions: [],
   };
 }
 
@@ -105,6 +106,7 @@ export function ProductsClient({ category, subCategories }: Props) {
     minPrice: urlState.minPrice,
     maxPrice: urlState.maxPrice,
     attrFilters: urlState.attrFilters,
+    cfOptions: [],
   });
   const [sort, setSort] = useState(urlState.sort);
   const [page, setPage] = useState(urlState.page);
@@ -120,6 +122,7 @@ export function ProductsClient({ category, subCategories }: Props) {
       minPrice: state.minPrice,
       maxPrice: state.maxPrice,
       attrFilters: state.attrFilters,
+      cfOptions: [],
     });
     setSort(state.sort);
     setPage(state.page);

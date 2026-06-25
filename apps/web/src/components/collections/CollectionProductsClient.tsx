@@ -37,6 +37,7 @@ function readFromUrl(params: URLSearchParams): ActiveFilters & {
     minPrice: params.get("minPrice") ? Number(params.get("minPrice")) : undefined,
     maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : undefined,
     attrFilters: {},
+    cfOptions: params.get("cf")?.split(",").filter(Boolean) ?? [],
   };
 }
 
@@ -54,6 +55,7 @@ function buildUrl(
   if (filters.size.length) params.set("size", filters.size.join(","));
   if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
   if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
+  if (filters.cfOptions?.length) params.set("cf", filters.cfOptions.join(","));
   const qs = params.toString();
   return `${pathname}${qs ? `?${qs}` : ""}`;
 }
@@ -80,6 +82,7 @@ export function CollectionProductsClient({
     minPrice: urlState.minPrice,
     maxPrice: urlState.maxPrice,
     attrFilters: {},
+    cfOptions: urlState.cfOptions,
   });
   const [sort, setSort] = useState(urlState.sort);
   const [page, setPage] = useState(urlState.page);
@@ -94,6 +97,7 @@ export function CollectionProductsClient({
       minPrice: s.minPrice,
       maxPrice: s.maxPrice,
       attrFilters: {},
+      cfOptions: s.cfOptions,
     });
     setSort(s.sort);
     setPage(s.page);
@@ -109,6 +113,7 @@ export function CollectionProductsClient({
     size: activeFilters.size.join(",") || undefined,
     minPrice: activeFilters.minPrice,
     maxPrice: activeFilters.maxPrice,
+    cf: activeFilters.cfOptions?.join(",") || undefined,
   });
 
   const pushUrl = useCallback(
@@ -120,7 +125,7 @@ export function CollectionProductsClient({
   );
 
   function handleFiltersChange(next: ActiveFilters) {
-    // Drop any subcats/attrFilters that FilterSidebar might emit — not used for collections
+    // Drop subcats/attrFilters — not applicable for collection pages
     const clean: ActiveFilters = {
       ...next,
       subcats: [],
@@ -152,7 +157,8 @@ export function CollectionProductsClient({
     activeFilters.color.length > 0 ||
     activeFilters.size.length > 0 ||
     activeFilters.minPrice !== undefined ||
-    activeFilters.maxPrice !== undefined;
+    activeFilters.maxPrice !== undefined ||
+    (activeFilters.cfOptions?.length ?? 0) > 0;
 
   // Shape available filters to match FilterSidebar's expected type
   const available = filtersData
@@ -161,6 +167,7 @@ export function CollectionProductsClient({
         brands: filtersData.brands,
         colors: filtersData.colors,
         sizes: filtersData.sizes,
+        collectionFilters: filtersData.collectionFilters,
       }
     : null;
 

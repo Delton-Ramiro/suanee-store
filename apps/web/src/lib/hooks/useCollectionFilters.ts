@@ -2,11 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "../api";
+import type { CollectionFilterItem } from "./useCategoryFilters";
 
 export type CollectionFilters = {
   brands: Array<{ id: string; name: string; slug: string; logoUrl: string | null }>;
   colors: Array<{ id: string; name: string; hexCode: string; slug: string }>;
   sizes: Array<{ id: string; name: string; label: string; sizeSystem: string }>;
+  collectionFilters: CollectionFilterItem[];
 };
 
 export function useCollectionFilters(collectionSlug: string) {

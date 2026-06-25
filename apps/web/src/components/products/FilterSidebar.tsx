@@ -9,6 +9,7 @@ import type {
   ColorOption,
   AttributeFilter,
   FilterOption,
+  CollectionFilterItem,
 } from "@/lib/hooks/useCategoryFilters";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -23,6 +24,8 @@ export type ActiveFilters = {
   minPrice?: number;
   maxPrice?: number;
   attrFilters: Record<string, string[]>;
+  /** Flat list of selected collection filter option IDs — OR logic across all */
+  cfOptions: string[];
 };
 
 export type SubCategory = { id: string; name: string; slug: string };
@@ -180,7 +183,7 @@ export function FilterSidebar({
   }
 
   function resetAll() {
-    onChange({ brand: [], color: [], size: [], subcats: [], attrFilters: {} });
+    onChange({ brand: [], color: [], size: [], subcats: [], attrFilters: {}, cfOptions: [] });
     setBrandQuery("");
     setSizeQuery("");
     setColorQuery("");
@@ -196,7 +199,8 @@ export function FilterSidebar({
     active.subcats.length > 0 ||
     active.minPrice !== undefined ||
     active.maxPrice !== undefined ||
-    Object.values(active.attrFilters).some((v) => v.length > 0);
+    Object.values(active.attrFilters).some((v) => v.length > 0) ||
+    (active.cfOptions?.length ?? 0) > 0;
 
   // Locally filtered lists
   const filteredBrands = brandQuery
@@ -470,6 +474,28 @@ export function FilterSidebar({
             </FilterGroup>
           );
         })}
+
+        {/* Collection filters — OR logic across all selections */}
+        {(available.collectionFilters ?? []).map((cf: CollectionFilterItem) => (
+          <FilterGroup key={cf.id} title={cf.name} defaultOpen={false}>
+            <div className="max-h-44 overflow-y-auto no-scrollbar flex flex-col gap-0.5">
+              {cf.options.map((opt) => (
+                <CheckRow
+                  key={opt.id}
+                  id={`cf-${cf.id}-${opt.id}`}
+                  label={opt.label}
+                  checked={(active.cfOptions ?? []).includes(opt.id)}
+                  onChange={() =>
+                    onChange({
+                      ...active,
+                      cfOptions: toggleInArray(active.cfOptions ?? [], opt.id),
+                    })
+                  }
+                />
+              ))}
+            </div>
+          </FilterGroup>
+        ))}
       </div>
     </div>
   );

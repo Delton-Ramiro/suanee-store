@@ -13,6 +13,8 @@ export type CollectionProductFilters = {
   size?: string;
   minPrice?: number;
   maxPrice?: number;
+  /** Comma-separated collection filter option IDs — OR logic */
+  cf?: string;
 };
 
 function buildUrl(slug: string, filters: CollectionProductFilters): string {
@@ -25,6 +27,7 @@ function buildUrl(slug: string, filters: CollectionProductFilters): string {
   if (filters.size) params.set("size", filters.size);
   if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
   if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
+  if (filters.cf) params.set("cf", filters.cf);
   const qs = params.toString();
   return `/catalog/collections/${slug}/products${qs ? `?${qs}` : ""}`;
 }
