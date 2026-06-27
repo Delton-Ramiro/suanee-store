@@ -8,9 +8,12 @@ import {
   useCategories,
   useCategory,
   useCreateCategory,
+  useCategoryNextPosition,
 } from "@/lib/hooks/useCategories";
 import ImageUpload from "@/components/ui/ImageUpload";
 import Toggle from "@/components/ui/Toggle";
+import SingleSelectDropdown from "@/components/ui/SingleSelectDropdown";
+import { buildPositionOptions } from "@/lib/positions";
 import { slugify } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { canManageCategories } from "@/lib/admin-access";
@@ -111,7 +114,7 @@ export default function NewCategoryPage() {
 
   // Form fields
   const [name, setName] = useState("");
-  const [position, setPosition] = useState("0");
+  const [position, setPosition] = useState("1");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   // Pre-populate when coming from a "Adicionar sub-categoria" button
@@ -140,6 +143,35 @@ export default function NewCategoryPage() {
   const l1Cats = allCats ?? []; // L1 root categories
   const selectedL1Cat = l1Cats.find((c) => c.id === selectedL1) ?? null;
   const l2Children = selectedL1Cat?.children ?? []; // L2 children of chosen L1
+  const selectedL2Cat = l2Children.find((c) => c.id === selectedL2) ?? null;
+  const l3Children = selectedL2Cat?.children ?? []; // L3 children of chosen L2
+
+  const occupiedPositions =
+    level === 1
+      ? new Set(l1Cats.map((c) => c.position))
+      : level === 2
+        ? new Set(l2Children.map((c) => c.position))
+        : new Set(l3Children.map((c) => c.position));
+
+  // API-derived next position for the current scope (used as auto-selected default)
+  const apiLevel = level - 1; // convert UI level (1-3) to API level (0-2)
+  const scopeParentId =
+    apiLevel === 2 ? selectedL2 : apiLevel === 1 ? selectedL1 : undefined;
+  const { data: nextPositionData } = useCategoryNextPosition(
+    apiLevel,
+    scopeParentId || null,
+  );
+
+  const positionOptions = nextPositionData
+    ? buildPositionOptions({
+        occupiedPositions: nextPositionData.occupiedPositions,
+        nextPosition: nextPositionData.nextPosition,
+        startFrom: 1,
+      })
+    : // Fallback while API loads: derive from tree to show options immediately
+      Array.from({ length: 21 }, (_, i) => i + 1)
+        .filter((i) => !occupiedPositions.has(i))
+        .map((i) => ({ value: String(i), label: String(i) }));
 
   // ── Toggle handlers ─────────────────────────────────────────────────────
   function handlePrincipalToggle(v: boolean) {
@@ -174,6 +206,19 @@ export default function NewCategoryPage() {
     setSelectedL2(""); // reset L2 when L1 changes
   }
 
+  // Auto-select the next available position when scope or API data changes
+  useEffect(() => {
+    if (positionOptions.length === 0) return;
+    const apiNext = nextPositionData?.nextPosition;
+    // Prefer the API-suggested next position if it's available in the options
+    const preferred =
+      apiNext !== undefined
+        ? positionOptions.find((o) => o.value === String(apiNext))
+        : undefined;
+    const target = preferred ?? positionOptions[0];
+    setPosition(target.value);
+  }, [nextPositionData, positionOptions.map((o) => o.value).join(",")]);
+
   // ── Mutation ─────────────────────────────────────────────────────────────
   const createCategory = useCreateCategory();
 
@@ -186,6 +231,7 @@ export default function NewCategoryPage() {
   const canSubmit =
     !createCategory.isPending &&
     name.trim().length > 0 &&
+    positionOptions.length > 0 &&
     (level === 1 ? imageUrl !== null : true) &&
     (level >= 2 ? selectedL1 !== "" : true) &&
     (level === 3 ? selectedL2 !== "" : true);
@@ -212,7 +258,7 @@ export default function NewCategoryPage() {
         slug: slugParts.join("-"),
         level: apiLevel,
         parentId: effectiveParentId,
-        position: level <= 2 ? parseInt(position) || 0 : 0,
+        position: parseInt(position) || 1,
         isActive: true,
         imageUrl: level === 1 ? imageUrl : undefined,
       });
@@ -229,11 +275,6 @@ export default function NewCategoryPage() {
       </div>
     );
   }
-
-  const positionOptions = Array.from({ length: 21 }, (_, i) => ({
-    value: String(i),
-    label: String(i),
-  }));
 
   return (
     <form
@@ -299,15 +340,23 @@ export default function NewCategoryPage() {
             placeholder="Nome da categoria"
           />
 
-          {/* ④ Exhibition index — L1 and L2 only */}
-          {level <= 2 && (
-            <Select
-              label="Índice de exibição"
-              value={position}
-              onChange={setPosition}
-              options={positionOptions}
-            />
-          )}
+          {/* ④ Exhibition index — smart dropdown with gap filling */}
+          <SingleSelectDropdown
+            label="Índice de exibição"
+            options={positionOptions}
+            value={position}
+            onChange={setPosition}
+            disabled={
+              positionOptions.length === 0 ||
+              (level === 2 && !selectedL1) ||
+              (level === 3 && !selectedL2)
+            }
+            placeholder={
+              positionOptions.length > 0
+                ? "Selecionar índice…"
+                : "Sem índices disponíveis"
+            }
+          />
 
           {/* ⑤ Toggles */}
           <div className="flex flex-col gap-1 pt-2">

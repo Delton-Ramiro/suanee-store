@@ -174,3 +174,21 @@ export function useDeleteCategory() {
     onError: (err: Error) => toast.error(err.message),
   });
 }
+
+export function useCategoryNextPosition(
+  level: number | null,
+  parentId?: string | null,
+) {
+  const qs = new URLSearchParams();
+  if (level !== null) qs.set("level", String(level));
+  if (parentId) qs.set("parentId", parentId);
+
+  return useQuery<{ nextPosition: number; occupiedPositions: number[] }>({
+    queryKey: ["category-next-position", level, parentId ?? null],
+    queryFn: () =>
+      apiFetch<{ nextPosition: number; occupiedPositions: number[] }>(
+        `/admin/categories/next-position?${qs}`,
+      ),
+    enabled: level !== null,
+  });
+}

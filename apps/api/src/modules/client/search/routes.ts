@@ -1,30 +1,38 @@
 import type { FastifyInstance } from "fastify";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../../../lib/prisma.js";
 
 const SearchQuery = z.object({
-  q: z.string().min(1).max(200),
+  q: z.string().max(200).default(""),
   page: z.coerce.number().int().min(1).default(1),
   perPage: z.coerce.number().int().min(1).max(100).default(24),
   sort: z
-    .enum(["newest", "price_asc", "price_desc", "popular"])
+    .enum(["newest", "price_asc", "price_desc", "discount", "popular", "brand_asc", "brand_desc"])
     .default("newest"),
+  /** Legacy single-brand filter — kept for backward compat */
   brandId: z.string().optional(),
+  /** Comma-separated brand IDs — takes priority over brandId */
+  brandIds: z.string().optional(),
   categoryId: z.string().optional(),
   colorIds: z.string().optional(),
+  /** Comma-separated size IDs */
+  sizeIds: z.string().optional(),
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
   gender: z.enum(["men", "women", "unisex", "kids"]).optional(),
   inStock: z.coerce.boolean().optional(),
 });
 
-const SORT_MAP = {
-  newest: { createdAt: "desc" as const },
-  price_asc: { basePrice: "asc" as const },
+const SORT_MAP: Record<string, object> = {
+  newest:     { createdAt: "desc" as const },
+  price_asc:  { basePrice: "asc" as const },
   price_desc: { basePrice: "desc" as const },
-  popular: { orderItems: { _count: "desc" as const } },
-} as const;
+  discount:   [{ hasDiscount: "desc" as const }, { discountPrice: "asc" as const }],
+  popular:    { orderItems: { _count: "desc" as const } },
+  brand_asc:  { brand: { name: "asc" as const } },
+  brand_desc: { brand: { name: "desc" as const } },
+};
 
 export default async function clientSearchRoutes(fastify: FastifyInstance) {
   // GET /search
@@ -35,14 +43,13 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
         "Full-text product search powered by PostgreSQL pg_trgm. Returns facets for brand, category, color, gender, and stock status alongside the product hits.",
       querystring: {
         type: "object",
-        required: ["q"],
         properties: {
-          q: { type: "string", minLength: 1, maxLength: 200 },
+          q: { type: "string", maxLength: 200, default: "" },
           page: { type: "integer", default: 1 },
           perPage: { type: "integer", default: 24, maximum: 100 },
           sort: {
             type: "string",
-            enum: ["newest", "price_asc", "price_desc", "popular"],
+            enum: ["newest", "price_asc", "price_desc", "discount", "popular", "brand_asc", "brand_desc"],
             default: "newest",
           },
           brandId: { type: "string" },
@@ -66,35 +73,74 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
     },
     handler: async (req, reply) => {
       const q = SearchQuery.parse(req.query);
+
       const colorIdList = q.colorIds
         ? q.colorIds.split(",").filter(Boolean)
         : undefined;
 
-      // Resolve brand IDs whose name matches the search term
-      const brandIdsFromText = (
-        await prisma.brand.findMany({
-          where: { name: { contains: q.q, mode: "insensitive" } },
-          select: { id: true },
-        })
-      ).map((b) => b.id);
+      const brandIdList = q.brandIds
+        ? q.brandIds.split(",").filter(Boolean)
+        : q.brandId
+          ? [q.brandId]
+          : [];
+
+      const sizeIdList = q.sizeIds
+        ? q.sizeIds.split(",").filter(Boolean)
+        : [];
+
+      // Parse attr-{attrDefId}=optId1,optId2 params from raw query
+      const attrFilters: { attrDefId: string; optionIds: string[] }[] = [];
+      for (const [key, value] of Object.entries(
+        req.query as Record<string, unknown>,
+      )) {
+        if (key.startsWith("attr-") && typeof value === "string") {
+          const attrDefId = key.slice(5);
+          const optionIds = value.split(",").filter(Boolean);
+          if (attrDefId && optionIds.length > 0)
+            attrFilters.push({ attrDefId, optionIds });
+        }
+      }
+
+      // Resolve brand IDs whose name matches the search term (skipped when q is empty)
+      const hasQuery = q.q.trim().length > 0;
+      const brandIdsFromText = hasQuery
+        ? (
+            await prisma.brand.findMany({
+              where: { name: { contains: q.q, mode: "insensitive" } },
+              select: { id: true },
+            })
+          ).map((b) => b.id)
+        : [];
+
+      const searchWords = hasQuery
+        ? q.q.toLowerCase().trim().split(/\s+/).filter(Boolean)
+        : [];
 
       // Base where clause (text match + all active filters)
       const baseWhere: Prisma.ProductWhereInput = {
         status: "published" as const,
         isVisible: true,
-        OR: [
-          { name: { contains: q.q, mode: "insensitive" as const } },
-          { description: { contains: q.q, mode: "insensitive" as const } },
-          ...(brandIdsFromText.length
-            ? [{ brandId: { in: brandIdsFromText } }]
-            : []),
-        ],
-        ...(q.brandId ? { brandId: q.brandId } : {}),
+        ...(hasQuery
+          ? {
+              OR: [
+                { name: { contains: q.q, mode: "insensitive" as const } },
+                { description: { contains: q.q, mode: "insensitive" as const } },
+                ...(brandIdsFromText.length
+                  ? [{ brandId: { in: brandIdsFromText } }]
+                  : []),
+                ...(searchWords.length ? [{ tags: { hasSome: searchWords } }] : []),
+              ],
+            }
+          : {}),
+        ...(brandIdList.length ? { brandId: { in: brandIdList } } : {}),
         ...(q.categoryId
           ? { categories: { some: { categoryId: q.categoryId } } }
           : {}),
         ...(colorIdList?.length
           ? { variants: { some: { colorId: { in: colorIdList } } } }
+          : {}),
+        ...(sizeIdList.length
+          ? { sizes: { some: { sizeId: { in: sizeIdList } } } }
           : {}),
         ...(q.minPrice !== undefined || q.maxPrice !== undefined
           ? {
@@ -106,30 +152,24 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
           : {}),
         ...(q.gender ? { genderScope: q.gender } : {}),
         ...(q.inStock ? { stockStatus: "in_stock" as const } : {}),
+        ...(attrFilters.length
+          ? {
+              AND: attrFilters.map(({ attrDefId, optionIds }) => ({
+                attributes: {
+                  some: {
+                    attributeDefinitionId: attrDefId,
+                    attributeOptionId: { in: optionIds },
+                  },
+                },
+              })),
+            }
+          : {}),
       };
-
-      // Copies without individual facet filters (for accurate facet counts)
-      const whereForBrandFacet = { ...baseWhere } as Record<string, unknown>;
-      delete whereForBrandFacet["brandId"];
-      const whereForGenderFacet = { ...baseWhere } as Record<string, unknown>;
-      delete whereForGenderFacet["genderScope"];
-      const whereForStockFacet = { ...baseWhere } as Record<string, unknown>;
-      delete whereForStockFacet["stockStatus"];
 
       const orderBy = SORT_MAP[q.sort] ?? SORT_MAP.newest;
       const skip = (q.page - 1) * q.perPage;
 
-      const [
-        found,
-        products,
-        brandFacets,
-        categoryFacets,
-        colorFacets,
-        genderFacets,
-        stockFacets,
-      ] = await Promise.all([
-        prisma.product.count({ where: baseWhere }),
-
+      const [products, total] = await Promise.all([
         prisma.product.findMany({
           where: baseWhere,
           orderBy,
@@ -142,115 +182,61 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
             basePrice: true,
             hasDiscount: true,
             discountPrice: true,
-            stockStatus: true,
-            genderScope: true,
-            brand: { select: { id: true, name: true } },
+            isIndicativePrice: true,
+            brand: { select: { id: true, name: true, slug: true } },
             media: {
-              where: { isPrimary: true },
-              take: 1,
-              select: { url: true, mediaType: true },
+              where: { colorId: null, isDeleted: false } as never,
+              take: 6,
+              orderBy: { position: "asc" as const },
+              select: { id: true, url: true, mediaType: true, isPrimary: true },
+            },
+            variants: {
+              select: {
+                colorId: true,
+                color: { select: { id: true, name: true, hexCode: true } },
+              },
+              take: 10,
             },
           },
         }),
-
-        prisma.product.groupBy({
-          by: ["brandId"],
-          where: whereForBrandFacet as Parameters<
-            typeof prisma.product.groupBy
-          >[0]["where"],
-          _count: { _all: true },
-          orderBy: { _count: { brandId: "desc" } },
-          take: 50,
-        }),
-
-        prisma.productCategory.groupBy({
-          by: ["categoryId"],
-          where: { product: baseWhere },
-          _count: { _all: true },
-          orderBy: { _count: { categoryId: "desc" } },
-          take: 50,
-        }),
-
-        prisma.productVariant.groupBy({
-          by: ["colorId"],
-          where: { product: baseWhere },
-          _count: { _all: true },
-          orderBy: { _count: { colorId: "desc" } },
-          take: 50,
-        }),
-
-        prisma.product.groupBy({
-          by: ["genderScope"],
-          where: whereForGenderFacet as Parameters<
-            typeof prisma.product.groupBy
-          >[0]["where"],
-          _count: { _all: true },
-        }),
-
-        prisma.product.groupBy({
-          by: ["stockStatus"],
-          where: whereForStockFacet as Parameters<
-            typeof prisma.product.groupBy
-          >[0]["where"],
-          _count: { _all: true },
-        }),
+        prisma.product.count({ where: baseWhere }),
       ]);
 
-      return reply.send({
-        found,
-        page: q.page,
-        perPage: q.perPage,
-        hits: products.map((p) => ({
+      const hits = products.map((p) => {
+        const seen = new Set<string>();
+        const colors = p.variants
+          .filter(
+            (v) =>
+              v.colorId &&
+              v.color &&
+              !seen.has(v.colorId) &&
+              seen.add(v.colorId),
+          )
+          .map((v) => v.color!);
+        return {
           document: {
             id: p.id,
             name: p.name,
             slug: p.slug,
             basePrice: Number(p.basePrice),
+            isIndicativePrice: p.isIndicativePrice,
             hasDiscount: p.hasDiscount,
             discountPrice: p.discountPrice ? Number(p.discountPrice) : null,
-            stockStatus: p.stockStatus,
-            genderScope: p.genderScope,
             brandId: p.brand.id,
             brandName: p.brand.name,
-            primaryImage: p.media[0]?.url ?? null,
+            brandSlug: p.brand.slug,
+            media: p.media,
+            colors,
           },
-        })),
-        facet_counts: [
-          {
-            field_name: "brandId",
-            counts: brandFacets.map((f) => ({
-              value: f.brandId,
-              count: f._count._all,
-            })),
-          },
-          {
-            field_name: "categoryIds",
-            counts: categoryFacets.map((f) => ({
-              value: f.categoryId,
-              count: f._count._all,
-            })),
-          },
-          {
-            field_name: "colorIds",
-            counts: colorFacets.map((f) => ({
-              value: f.colorId,
-              count: f._count._all,
-            })),
-          },
-          {
-            field_name: "genderScope",
-            counts: genderFacets
-              .filter((f) => f.genderScope !== null)
-              .map((f) => ({ value: f.genderScope!, count: f._count._all })),
-          },
-          {
-            field_name: "stockStatus",
-            counts: stockFacets.map((f) => ({
-              value: f.stockStatus,
-              count: f._count._all,
-            })),
-          },
-        ],
+        };
+      });
+
+      return reply.send({
+        hits,
+        total,
+        page: q.page,
+        perPage: q.perPage,
+        totalPages: Math.ceil(total / q.perPage),
       });
     },
   });
@@ -276,6 +262,40 @@ export default async function clientSearchRoutes(fastify: FastifyInstance) {
         include: { category: { select: { name: true, slug: true } } },
       });
       return reply.send(terms);
+    },
+  });
+
+  // GET /search/most-searched — most-searched categories for client portal
+  fastify.get("/most-searched", {
+    schema: {
+      tags: ["Search"],
+      description:
+        "Returns the top 10 most-searched categories with level and parent info for URL construction. Level 1 → /categorias/[slug], Level 2+ → /categorias/[slug]/produtos.",
+      response: {
+        200: {
+          description: "Most-searched categories",
+          type: "array",
+          items: { type: "object" },
+        },
+      },
+    },
+    handler: async (_req, reply) => {
+      const items = await prisma.mostSearched.findMany({
+        orderBy: { position: "asc" },
+        take: 10,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              level: true,
+              parent: { select: { slug: true } },
+            },
+          },
+        },
+      });
+      return reply.send(items);
     },
   });
 }

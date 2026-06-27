@@ -10,6 +10,7 @@ import {
   useCategory,
   useCategoryProducts,
   useUpdateCategory,
+  useCategoryNextPosition,
   type Category,
   type AdminProductListItem,
 } from "@/lib/hooks/useCategories";
@@ -20,6 +21,8 @@ import Pagination from "@/components/ui/Pagination";
 import ImageUpload from "@/components/ui/ImageUpload";
 import Toggle from "@/components/ui/Toggle";
 import CopyId from "@/components/ui/CopyId";
+import SingleSelectDropdown from "@/components/ui/SingleSelectDropdown";
+import { buildPositionOptions } from "@/lib/positions";
 import { formatDate, formatPrice, slugify } from "@/lib/format";
 import { useAuth } from "@/lib/auth";
 import { canManageCategories } from "@/lib/admin-access";
@@ -136,11 +139,19 @@ export default function CategoryDetailPage({
   const [editIsActive, setEditIsActive] = useState(true);
   const [editImageUrl, setEditImageUrl] = useState<string | null>(null);
   const [editParentId, setEditParentId] = useState<string | null>(null);
-  const [editPosition, setEditPosition] = useState("0");
+  const [editPosition, setEditPosition] = useState("1");
 
   const { data: category, isLoading: catLoading } = useCategory(id);
   const { data: allCats } = useCategories();
   const updateCategory = useUpdateCategory();
+
+  // When editing, derive next position for the currently selected scope
+  const editLevel = category?.level ?? null;
+  const editScopeParentId = isEditing ? editParentId : null;
+  const { data: nextPositionData } = useCategoryNextPosition(
+    isEditing ? editLevel : null,
+    editScopeParentId,
+  );
 
   if (!allowCategoryManagement) {
     return (
@@ -155,7 +166,7 @@ export default function CategoryDetailPage({
       setEditIsActive(category.isActive);
       setEditImageUrl(category.imageUrl);
       setEditParentId(category.parentId ?? null);
-      setEditPosition(String(category.position ?? 0));
+      setEditPosition(String(category.position ?? 1));
     }
   }, [category]);
 
@@ -224,7 +235,7 @@ export default function CategoryDetailPage({
           name: effectiveName,
           slug: slugParts.join("-"),
           isActive: editIsActive,
-          position: parseInt(editPosition) || 0,
+          position: parseInt(editPosition) || 1,
           imageUrl: editImageUrl,
           ...(category.level > 0 &&
             editParentId !== category.parentId && {
@@ -244,10 +255,80 @@ export default function CategoryDetailPage({
       setEditIsActive(category.isActive);
       setEditImageUrl(category.imageUrl);
       setEditParentId(category.parentId ?? null);
-      setEditPosition(String(category.position ?? 0));
+      setEditPosition(String(category.position ?? 1));
     }
     setIsEditing(false);
   }
+
+  const level = category?.level ?? 0;
+  const parent = category?.parent ?? null;
+  const grandParent = parent?.parent ?? null;
+  const l0Parent = level === 1 ? parent : level === 2 ? grandParent : null;
+  const l1Parent = level === 2 ? parent : null;
+
+  const targetParentId =
+    isEditing && editParentId !== null
+      ? editParentId
+      : (category?.parentId ?? null);
+
+  const rootSiblings = allCats ?? [];
+  const level1Siblings = targetParentId
+    ? (rootSiblings.find((c) => c.id === targetParentId)?.children ?? [])
+    : [];
+  const level2Siblings = targetParentId
+    ? (rootSiblings
+        .flatMap((c) => c.children ?? [])
+        .find((c) => c.id === targetParentId)?.children ?? [])
+    : [];
+
+  const scopedSiblings = !category
+    ? []
+    : level === 0
+      ? rootSiblings
+      : level === 1
+        ? level1Siblings
+        : level2Siblings;
+
+  const occupiedScopedPositions = new Set(
+    scopedSiblings.filter((c) => c.id !== category?.id).map((c) => c.position),
+  );
+
+  const availablePositionOptions = nextPositionData
+    ? buildPositionOptions({
+        occupiedPositions: nextPositionData.occupiedPositions,
+        nextPosition: nextPositionData.nextPosition,
+        currentPosition: category?.position ?? undefined,
+        startFrom: 1,
+      })
+    : // Fallback while API loads: derive from tree
+      Array.from({ length: 21 }, (_, i) => i + 1)
+        .filter(
+          (i) =>
+            i === (category?.position ?? -1) || !occupiedScopedPositions.has(i),
+        )
+        .map((i) => ({ value: String(i), label: String(i) }));
+
+  useEffect(() => {
+    if (!isEditing || !category || availablePositionOptions.length === 0)
+      return;
+    const stillValid = availablePositionOptions.some(
+      (opt) => opt.value === editPosition,
+    );
+    if (!stillValid) {
+      // Prefer API-suggested next position if available, else fall back to first option
+      const apiNext = nextPositionData?.nextPosition;
+      const preferred = apiNext
+        ? availablePositionOptions.find((o) => o.value === String(apiNext))
+        : undefined;
+      setEditPosition((preferred ?? availablePositionOptions[0]).value);
+    }
+  }, [
+    isEditing,
+    category,
+    availablePositionOptions,
+    editPosition,
+    nextPositionData,
+  ]);
 
   if (catLoading) {
     return (
@@ -299,13 +380,6 @@ export default function CategoryDetailPage({
       </div>
     );
   }
-
-  const { level, parent } = category;
-  const grandParent = parent?.parent ?? null;
-  // l0Parent: the principal (root, level 0) ancestor
-  const l0Parent = level === 1 ? parent : level === 2 ? grandParent : null;
-  // l1Parent: the secondary (level 1) parent — only for terciária (level 2)
-  const l1Parent = level === 2 ? parent : null;
 
   const showSubcategoriesTab = level < 2; // only L0 and L1 have sub-categories
 
@@ -597,18 +671,22 @@ export default function CategoryDetailPage({
             disabled={!isEditing}
           />
 
-          {/* Position — ordered dropdown */}
-          <SelectField
+          {/* Position — smart dropdown with gap filling */}
+          <SingleSelectDropdown
             label="Índice de exibição"
-            displayValue={String(category.position ?? 0)}
-            {...(isEditing && {
-              options: Array.from({ length: 21 }, (_, i) => ({
-                value: String(i),
-                label: String(i),
-              })),
-              value: editPosition,
-              onChange: setEditPosition,
-            })}
+            options={
+              isEditing
+                ? availablePositionOptions
+                : [
+                    {
+                      value: String(category.position ?? 1),
+                      label: String(category.position ?? 1),
+                    },
+                  ]
+            }
+            value={isEditing ? editPosition : String(category.position ?? 1)}
+            onChange={isEditing ? setEditPosition : undefined}
+            disabled={!isEditing}
           />
 
           {/* Toggles */}

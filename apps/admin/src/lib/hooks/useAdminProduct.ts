@@ -57,6 +57,7 @@ export type AdminProductDetail = {
   isVisible: boolean;
   keyCharacteristics: string | null;
   productInfo: string | null;
+  safetyInfo: string | null;
   sendPolicy: string | null;
   returnPolicy: string | null;
   deliveryEstimate: string | null;
@@ -67,6 +68,11 @@ export type AdminProductDetail = {
   media: ProductMediaItem[];
   sizes: { sizeId: string }[];
   attributes: { attributeDefinitionId: string; attributeOptionId: string }[];
+  collectionFilterAttributes: {
+    collectionFilterId: string;
+    collectionFilterOptionId: string;
+  }[];
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -85,6 +91,7 @@ export type CreateProductPayload = {
   isVisible?: boolean;
   keyCharacteristics?: string;
   productInfo?: string;
+  safetyInfo?: string;
   sendPolicy?: string;
   returnPolicy?: string;
   deliveryEstimate?: string;
@@ -96,6 +103,11 @@ export type CreateProductPayload = {
     attributeDefinitionId: string;
     attributeOptionIds: string[];
   }[];
+  collectionFilterAttributes?: {
+    collectionFilterId: string;
+    collectionFilterOptionIds: string[];
+  }[];
+  tags?: string[];
   variants?: {
     colorId: string;
     sizeId: string;
@@ -186,6 +198,76 @@ export function useDeleteProduct() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-products"] });
       toast.success("Produto eliminado com sucesso");
+    },
+    onError: (err: Error) => toastApiError(err),
+  });
+}
+
+export type RelatedProductItem = {
+  id: string;
+  name: string;
+  slug: string;
+  basePrice: number;
+  position: number;
+  brand: { id: string; name: string };
+  media: Array<{ url: string; mediaType: string }>;
+};
+
+export type ShownWithItem = {
+  id: string;
+  name: string;
+  slug: string;
+  basePrice: number;
+  position: number;
+  brand: { id: string; name: string };
+  media: Array<{ url: string; mediaType: string }>;
+};
+
+export function useRelatedProducts(id: string | null) {
+  return useQuery<RelatedProductItem[]>({
+    queryKey: ["admin-product-related", id],
+    queryFn: () =>
+      apiFetch<RelatedProductItem[]>(`/admin/products/${id}/related`),
+    enabled: !!id,
+  });
+}
+
+export function useUpdateRelatedProducts(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (items: { productId: string; position: number }[]) =>
+      apiFetch<{ count: number }>(`/admin/products/${id}/related`, {
+        method: "PUT",
+        body: JSON.stringify({ items }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-product-related", id] });
+      toast.success("Produtos relacionados guardados");
+    },
+    onError: (err: Error) => toastApiError(err),
+  });
+}
+
+export function useShownWithProducts(id: string | null) {
+  return useQuery<ShownWithItem[]>({
+    queryKey: ["admin-product-shown-with", id],
+    queryFn: () =>
+      apiFetch<ShownWithItem[]>(`/admin/products/${id}/shown-with`),
+    enabled: !!id,
+  });
+}
+
+export function useUpdateShownWithProducts(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (items: { productId: string; position: number }[]) =>
+      apiFetch<{ count: number }>(`/admin/products/${id}/shown-with`, {
+        method: "PUT",
+        body: JSON.stringify({ items }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-product-shown-with", id] });
+      toast.success('"Produtos mostrados com modelo" guardado');
     },
     onError: (err: Error) => toastApiError(err),
   });
