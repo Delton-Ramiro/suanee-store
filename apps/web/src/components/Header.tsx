@@ -18,6 +18,7 @@ import { useFavorites, favoritesStore } from "@/lib/stores/favoritesStore";
 import { useAuth } from "@/lib/auth";
 import { ordersStore } from "@/lib/stores/ordersStore";
 import { searchStore } from "@/lib/stores/searchStore";
+import { loginStore } from "@/lib/stores/loginStore";
 
 /* ─── Icon sizes ──────────────────────────────────────────────── */
 const iconCls = "w-[22px] h-[22px] stroke-[1.5]";
@@ -125,7 +126,7 @@ export default function Header() {
   return (
     <>
       {/* ── Desktop / Tablet nav ─────────────────────────────── */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-nav h-[98px]">
+      <header className="fixed left-0 right-0 z-50 bg-white shadow-nav h-[98px]" style={{ top: "var(--topbar-h, 0px)" }}>
         <div className="container-web h-full flex items-center gap-4">
           {/* Left — logo */}
           <Link
@@ -209,9 +210,9 @@ export default function Header() {
                   </IconBtnAction>
                 </>
               ) : (
-                <IconBtn href="/login" label="Entrar">
+                <IconBtnAction onClick={loginStore.open} label="Entrar">
                   <User className={iconCls} />
-                </IconBtn>
+                </IconBtnAction>
               )}
 
               {/* Separator */}
@@ -259,12 +260,12 @@ export default function Header() {
         <div className="hidden md:block">
           {/* Dark backdrop — covers page below the menu */}
           <div
-            className="fixed top-[98px] inset-x-0 bottom-0 z-30 bg-black/30 animate-[fade-in_0.2s_ease_both]"
+            className="fixed inset-x-0 bottom-0 z-30 bg-black/30 animate-[fade-in_0.2s_ease_both]" style={{ top: "calc(98px + var(--topbar-h, 0px))" }}
             onClick={() => setOpenCategoryId(null)}
           />
           {/* Panel */}
           <div
-            className="fixed top-[98px] left-0 right-0 z-40"
+            className="fixed left-0 right-0 z-40" style={{ top: "calc(98px + var(--topbar-h, 0px))" }}
             onMouseEnter={cancelClose}
             onMouseLeave={scheduleClose}
           >
@@ -286,7 +287,7 @@ export default function Header() {
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
-          <div className="fixed top-[98px] left-0 right-0 z-50 bg-white border-t border-border md:hidden shadow-nav">
+          <div className="fixed left-0 right-0 z-50 bg-white border-t border-border md:hidden shadow-nav" style={{ top: "calc(98px + var(--topbar-h, 0px))" }}>
             <div className="container-web py-6 flex flex-col gap-4">
               {/* First-level categories */}
               {categories.length > 0 && (
@@ -350,14 +351,17 @@ export default function Header() {
                     </button>
                   </>
                 ) : (
-                  <Link
-                    href="/login"
-                    onClick={() => setMobileOpen(false)}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      loginStore.open();
+                    }}
                     className="flex items-center gap-2 text-sm font-medium text-brand hover:text-primary transition-colors duration-150"
                   >
                     <User className="w-4 h-4" />
                     Entrar / Criar conta
-                  </Link>
+                  </button>
                 )}
                 <button
                   type="button"

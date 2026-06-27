@@ -12,8 +12,10 @@ import {
   Layers,
   Library,
   LogOut,
+  MapPin,
   Maximize2,
   MessageCircle,
+  MonitorPlay,
   Package,
   Palette,
   Settings,
@@ -89,6 +91,18 @@ const STRUCTURE_ITEMS = [
     label: "Câmbio",
     icon: SquaresExclude,
     permission: Permissions.CURRENCY_EDIT,
+  },
+  {
+    href: "/anuncios",
+    label: "Anúncios",
+    icon: MonitorPlay,
+    permission: Permissions.POPUP_MODALS_EDIT,
+  },
+  {
+    href: "/pontos-de-recolha",
+    label: "Pontos de recolha",
+    icon: MapPin,
+    permission: Permissions.PICK_POINTS_EDIT,
   },
 ];
 

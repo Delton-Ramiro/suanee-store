@@ -14,6 +14,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:products": "tsx prisma/seed_products_from_test_data.ts",
+    "db:seed:order": "tsx prisma/seed_order.ts",
     "db:reset": "tsx prisma/reset.ts"
   },
   "dependencies": {

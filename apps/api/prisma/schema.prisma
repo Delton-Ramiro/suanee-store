@@ -65,6 +65,7 @@ enum SenderType {
 enum MessageMediaType {
   image
   video
+  pdf
 }
 
 enum ProductStatus {
@@ -94,12 +95,13 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  refreshTokens  RefreshToken[]
-  cart           CartItem[]
-  favorites      Favorite[]
-  orders         Order[]
-  conversations  Conversation[]
-  visitorSession VisitorSession?
+  refreshTokens   RefreshToken[]
+  cart            CartItem[]
+  favorites       Favorite[]
+  orders          Order[]
+  conversations   Conversation[]
+  visitorSession  VisitorSession?
+  recentlyViewed  UserRecentlyViewed[]
 
   @@map("users")
 }
@@ -257,8 +259,9 @@ model Collection {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  category Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  products ProductCollection[]
+  category          Category?                    @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  products          ProductCollection[]
+  collectionFilters CollectionFilterCollection[]
 
   @@index([categoryId])
   @@map("collections")
@@ -274,6 +277,66 @@ model ProductCollection {
   @@id([productId, collectionId])
   @@index([collectionId, productId])
   @@map("product_collections")
+}
+
+// ─── Collection Filters ───────────────────────────────────────────────────────
+
+model CollectionFilter {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String
+  inputType InputType @default(multi_select)
+  position  Int       @default(0)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  collections        CollectionFilterCollection[]
+  options            CollectionFilterOption[]
+  productAttributes  ProductCollectionFilterAttribute[]
+
+  @@index([slug])
+  @@map("collection_filters")
+}
+
+model CollectionFilterCollection {
+  collectionFilterId String
+  collectionId       String
+
+  filter     CollectionFilter @relation(fields: [collectionFilterId], references: [id], onDelete: Cascade)
+  collection Collection       @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@id([collectionFilterId, collectionId])
+  @@index([collectionId, collectionFilterId])
+  @@map("collection_filter_collections")
+}
+
+model CollectionFilterOption {
+  id                 String @id @default(uuid())
+  collectionFilterId String
+  label              String
+  value              String
+  position           Int    @default(0)
+
+  filter            CollectionFilter                  @relation(fields: [collectionFilterId], references: [id], onDelete: Cascade)
+  productAttributes ProductCollectionFilterAttribute[]
+
+  @@unique([collectionFilterId, value])
+  @@map("collection_filter_options")
+}
+
+model ProductCollectionFilterAttribute {
+  productId              String
+  collectionFilterId     String
+  collectionFilterOptionId String
+
+  product Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  filter  CollectionFilter      @relation(fields: [collectionFilterId], references: [id], onDelete: Restrict)
+  option  CollectionFilterOption @relation(fields: [collectionFilterOptionId], references: [id], onDelete: Restrict)
+
+  @@id([productId, collectionFilterId, collectionFilterOptionId])
+  @@index([productId])
+  @@map("product_collection_filter_attributes")
 }
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
@@ -403,6 +466,7 @@ model Product {
   isVisible          Boolean       @default(true)
   keyCharacteristics String?
   productInfo        String?
+  safetyInfo         String?
   sendPolicy         String?
   sizeAndFit         String?
   returnPolicy       String?
@@ -410,6 +474,7 @@ model Product {
   supplierLink       String?
   mainColorId        String?
   genderScope        GenderScope?
+  tags               String[]      @default([])
   metaTitle          String?       @db.VarChar(60)
   metaDescription    String?       @db.VarChar(160)
   createdAt          DateTime      @default(now())
@@ -418,20 +483,24 @@ model Product {
   brand     Brand      @relation(fields: [brandId], references: [id], onDelete: Restrict)
   sizeGuide SizeGuide? @relation(fields: [sizeGuideId], references: [id], onDelete: SetNull)
 
-  collections       ProductCollection[]
-  categories        ProductCategory[]
-  variants          ProductVariant[]
-  media             ProductMedia[]
-  sizes             ProductSize[]
-  attributes        ProductAttribute[]
-  favorites         Favorite[]
-  orderItems        OrderItem[]
+  collections                    ProductCollection[]
+  categories                     ProductCategory[]
+  variants                       ProductVariant[]
+  media                          ProductMedia[]
+  sizes                          ProductSize[]
+  attributes                     ProductAttribute[]
+  collectionFilterAttributes     ProductCollectionFilterAttribute[]
+  favorites                      Favorite[]
+  orderItems                     OrderItem[]
+  recentlyViewedBy               UserRecentlyViewed[]
   storyProducts     StorySlideProduct[]
   suppliers         ProductSupplier[]
   competitors       ProductCompetitor[]
   cartItems         CartItem[]
   relatedProducts   ProductRelated[]    @relation("ProductSource")
   relatedByProducts ProductRelated[]    @relation("ProductTarget")
+  shownWithSource   ProductShownWith[]  @relation("ProductShownWithSource")
+  shownWithTarget   ProductShownWith[]  @relation("ProductShownWithTarget")
 
   @@index([brandId])
   @@index([status, isVisible])
@@ -442,6 +511,7 @@ model Product {
 model ProductRelated {
   sourceId String
   targetId String
+  position Int    @default(0)
 
   source Product @relation("ProductSource", fields: [sourceId], references: [id], onDelete: Cascade)
   target Product @relation("ProductTarget", fields: [targetId], references: [id], onDelete: Cascade)
@@ -449,6 +519,19 @@ model ProductRelated {
   @@id([sourceId, targetId])
   @@index([sourceId])
   @@map("product_related")
+}
+
+model ProductShownWith {
+  sourceId String
+  targetId String
+  position Int    @default(0)
+
+  source Product @relation("ProductShownWithSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Product @relation("ProductShownWithTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([sourceId, targetId])
+  @@index([sourceId])
+  @@map("product_shown_with")
 }
 
 model ProductCategory {
@@ -616,6 +699,9 @@ model Order {
   returnReason       String?
   returnProof        String?
   cancellationReason String?
+  pickPointId        String?
+  deliveryType       String?     // "pickup" | "home"
+  deliveryAddress    String?     // free-text address for home delivery
   subtotal           Decimal     @db.Decimal(10, 2)
   shippingCost       Decimal     @default(0) @db.Decimal(10, 2)
   total              Decimal     @db.Decimal(10, 2)
@@ -632,6 +718,7 @@ model Order {
   user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
   processedBy  AdminUser?   @relation("ProcessedBy", fields: [processedById], references: [id], onDelete: SetNull)
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  pickPoint    PickPoint?   @relation(fields: [pickPointId], references: [id], onDelete: SetNull)
   items        OrderItem[]
 
   @@index([userId])
@@ -642,6 +729,7 @@ model Order {
   @@index([returnedAt])
   @@index([cancelledAt])
   @@index([userId, createdAt])
+  @@index([pickPointId])
   @@map("orders")
 }
 
@@ -768,4 +856,71 @@ model CurrencyRate {
   suppliers ProductSupplier[]
 
   @@map("currency_rates")
+}
+
+// ─── Top Bars ─────────────────────────────────────────────────────────────────
+
+model TopBar {
+  id            String    @id @default(uuid())
+  text          String
+  linkUrl       String?
+  linkLabel     String?
+  timerMode     String?
+  timerSeconds  Int?
+  timerDeadline DateTime?
+  isActive      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([isActive])
+  @@map("top_bars")
+}
+
+// ─── Popup Modals ─────────────────────────────────────────────────────────────
+
+model PopupModal {
+  id          String   @id @default(uuid())
+  name        String
+  imageUrl    String
+  redirectUrl String?
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("popup_modals")
+}
+
+// ─── Pick Points ──────────────────────────────────────────────────────────────
+
+model PickPoint {
+  id        String   @id @default(uuid())
+  province  String
+  name      String
+  address   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([province])
+  @@index([isActive])
+  @@map("pick_points")
+}
+
+// ─── Recently Viewed ──────────────────────────────────────────────────────────
+
+model UserRecentlyViewed {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  viewedAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, viewedAt(sort: Desc)])
+  @@map("user_recently_viewed")
 }

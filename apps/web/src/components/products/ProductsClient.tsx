@@ -10,7 +10,7 @@ import {
   type ActiveFilters,
   type SubCategory,
 } from "./FilterSidebar";
-import { SortBar } from "./SortBar";
+import { SortBar, SORT_VALUES, type Sort } from "./SortBar";
 import { Pagination } from "./Pagination";
 
 type CategoryInfo = {
@@ -32,7 +32,7 @@ const PAGE_LIMIT = 24;
 
 function readFiltersFromUrl(params: URLSearchParams): ActiveFilters & {
   page: number;
-  sort: "newest" | "price_asc" | "price_desc";
+  sort: Sort;
 } {
   const attrFilters: Record<string, string[]> = {};
   params.forEach((value, key) => {
@@ -46,9 +46,7 @@ function readFiltersFromUrl(params: URLSearchParams): ActiveFilters & {
 
   return {
     page: Math.max(1, Number(params.get("page") ?? 1)),
-    sort: (["newest", "price_asc", "price_desc"].includes(sort ?? "")
-      ? sort
-      : "newest") as "newest" | "price_asc" | "price_desc",
+    sort: ((SORT_VALUES as readonly string[]).includes(sort ?? "") ? sort : "newest") as Sort,
     brand: params.get("brand")?.split(",").filter(Boolean) ?? [],
     color: params.get("color")?.split(",").filter(Boolean) ?? [],
     size: params.get("size")?.split(",").filter(Boolean) ?? [],
@@ -60,6 +58,7 @@ function readFiltersFromUrl(params: URLSearchParams): ActiveFilters & {
       ? Number(params.get("maxPrice"))
       : undefined,
     attrFilters,
+    cfOptions: [],
   };
 }
 
@@ -105,6 +104,7 @@ export function ProductsClient({ category, subCategories }: Props) {
     minPrice: urlState.minPrice,
     maxPrice: urlState.maxPrice,
     attrFilters: urlState.attrFilters,
+    cfOptions: [],
   });
   const [sort, setSort] = useState(urlState.sort);
   const [page, setPage] = useState(urlState.page);
@@ -120,6 +120,7 @@ export function ProductsClient({ category, subCategories }: Props) {
       minPrice: state.minPrice,
       maxPrice: state.maxPrice,
       attrFilters: state.attrFilters,
+      cfOptions: [],
     });
     setSort(state.sort);
     setPage(state.page);
@@ -153,7 +154,7 @@ export function ProductsClient({ category, subCategories }: Props) {
     pushUrl(next, 1, sort);
   }
 
-  function handleSort(newSort: "newest" | "price_asc" | "price_desc") {
+  function handleSort(newSort: Sort) {
     setSort(newSort);
     setPage(1);
     pushUrl(activeFilters, 1, newSort);

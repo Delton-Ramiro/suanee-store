@@ -9,6 +9,7 @@ import type {
   ColorOption,
   AttributeFilter,
   FilterOption,
+  CollectionFilterItem,
 } from "@/lib/hooks/useCategoryFilters";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
@@ -23,6 +24,8 @@ export type ActiveFilters = {
   minPrice?: number;
   maxPrice?: number;
   attrFilters: Record<string, string[]>;
+  /** Flat list of selected collection filter option IDs — OR logic across all */
+  cfOptions: string[];
 };
 
 export type SubCategory = { id: string; name: string; slug: string };
@@ -180,7 +183,7 @@ export function FilterSidebar({
   }
 
   function resetAll() {
-    onChange({ brand: [], color: [], size: [], subcats: [], attrFilters: {} });
+    onChange({ brand: [], color: [], size: [], subcats: [], attrFilters: {}, cfOptions: [] });
     setBrandQuery("");
     setSizeQuery("");
     setColorQuery("");
@@ -196,7 +199,8 @@ export function FilterSidebar({
     active.subcats.length > 0 ||
     active.minPrice !== undefined ||
     active.maxPrice !== undefined ||
-    Object.values(active.attrFilters).some((v) => v.length > 0);
+    Object.values(active.attrFilters).some((v) => v.length > 0) ||
+    (active.cfOptions?.length ?? 0) > 0;
 
   // Locally filtered lists
   const filteredBrands = brandQuery
@@ -222,9 +226,9 @@ export function FilterSidebar({
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-border-light">
+      <div className="flex items-center gap-2 pb-3 border-b border-border-light">
         <span className="text-sm font-bold text-brand">Filtros</span>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           {hasActive && (
             <button
               type="button"
@@ -246,11 +250,11 @@ export function FilterSidebar({
       </div>
 
       {/* Scrollable filter groups */}
-      <div className="flex-1 overflow-y-auto overscroll-contain -mr-1 pr-1">
+      <div className="flex-1 overflow-y-auto no-scrollbar -mr-1 pr-1">
         {/* Sub-categories (only shown when coming from a parent category with children) */}
         {subCategories && subCategories.length > 0 && (
           <FilterGroup title="Subcategoria">
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto no-scrollbar">
               {subCategories.map((sc) => (
                 <CheckRow
                   key={sc.id}
@@ -276,7 +280,7 @@ export function FilterSidebar({
               onChange={setBrandQuery}
               placeholder="Pesquisar marca…"
             />
-            <div className="max-h-44 overflow-y-auto flex flex-col gap-0.5">
+            <div className="max-h-44 overflow-y-auto no-scrollbar flex flex-col gap-0.5">
               {filteredBrands.length > 0 ? (
                 filteredBrands.map((b: BrandOption) => (
                   <CheckRow
@@ -345,7 +349,7 @@ export function FilterSidebar({
             onChange={setColorQuery}
             placeholder="Pesquisar cor…"
           />
-          <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
+          <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto no-scrollbar pl-1">
             {filteredColors.length > 0 ? (
               filteredColors.map((c: ColorOption) => (
                 <label
@@ -441,7 +445,7 @@ export function FilterSidebar({
                 }
                 placeholder={`Pesquisar ${attr.name.toLowerCase()}…`}
               />
-              <div className="max-h-44 overflow-y-auto flex flex-col gap-0.5">
+              <div className="max-h-44 overflow-y-auto no-scrollbar flex flex-col gap-0.5">
                 {filteredOpts.length > 0 ? (
                   filteredOpts.map((opt: FilterOption) => (
                     <CheckRow
@@ -470,6 +474,28 @@ export function FilterSidebar({
             </FilterGroup>
           );
         })}
+
+        {/* Collection filters — OR logic across all selections */}
+        {(available.collectionFilters ?? []).map((cf: CollectionFilterItem) => (
+          <FilterGroup key={cf.id} title={cf.name} defaultOpen={false}>
+            <div className="max-h-44 overflow-y-auto no-scrollbar flex flex-col gap-0.5">
+              {cf.options.map((opt) => (
+                <CheckRow
+                  key={opt.id}
+                  id={`cf-${cf.id}-${opt.id}`}
+                  label={opt.label}
+                  checked={(active.cfOptions ?? []).includes(opt.id)}
+                  onChange={() =>
+                    onChange({
+                      ...active,
+                      cfOptions: toggleInArray(active.cfOptions ?? [], opt.id),
+                    })
+                  }
+                />
+              ))}
+            </div>
+          </FilterGroup>
+        ))}
       </div>
     </div>
   );

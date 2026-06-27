@@ -4,6 +4,21 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { ImagePlus, X, ZoomIn, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  rectSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import Modal from "@/components/ui/Modal";
 import { apiFetch } from "@/lib/api";
 import type { SizeGuide, SizeGuideImage } from "@/lib/hooks/useSizes";
@@ -26,8 +41,81 @@ interface SizeGuideFormModalProps {
 }
 
 interface ImageItem {
+  id: string;
   url: string;
   uploading?: boolean;
+}
+
+let _idCounter = 0;
+function nextId() {
+  return String(++_idCounter);
+}
+
+function SortableImageItem({
+  item,
+  index,
+  onZoom,
+  onRemove,
+}: {
+  item: ImageItem;
+  index: number;
+  onZoom: (i: number) => void;
+  onRemove: (i: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative w-24 h-24 rounded-xl overflow-hidden border border-border-light bg-bg shrink-0 group cursor-grab active:cursor-grabbing"
+      {...attributes}
+      {...listeners}
+    >
+      {item.uploading ? (
+        <div className="w-full h-full flex items-center justify-center bg-surface-hover">
+          <span className="w-5 h-5 border-[3px] border-accent/20 border-t-accent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          <Image
+            fill
+            src={item.url}
+            alt={`Imagem ${index + 1}`}
+            className="object-cover"
+            sizes="96px"
+          />
+          <div className="absolute inset-0 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 bg-black/25 transition-opacity">
+            <button
+              type="button"
+              onClick={() => onZoom(index)}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex items-center justify-center w-7 h-7 rounded-full bg-white/90 text-text-dark hover:bg-white transition-colors"
+              title="Ver imagem"
+            >
+              <ZoomIn size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onRemove(index)}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="flex items-center justify-center w-7 h-7 rounded-full bg-white/90 text-danger hover:bg-white transition-colors"
+              title="Remover"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function SizeGuideFormModal({
@@ -39,6 +127,8 @@ export default function SizeGuideFormModal({
   loading,
 }: SizeGuideFormModalProps) {
   const isEdit = !!initial;
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -62,7 +152,7 @@ export default function SizeGuideFormModal({
       setImages(
         [...initial.images]
           .sort((a, b) => a.position - b.position)
-          .map((img) => ({ url: img.url })),
+          .map((img) => ({ id: nextId(), url: img.url })),
       );
     } else {
       setImages([]);
@@ -80,7 +170,8 @@ export default function SizeGuideFormModal({
     if (!file) return;
 
     // Append an uploading placeholder
-    setImages((prev) => [...prev, { url: "", uploading: true }]);
+    const placeholderId = nextId();
+    setImages((prev) => [...prev, { id: placeholderId, url: "", uploading: true }]);
 
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
@@ -107,8 +198,8 @@ export default function SizeGuideFormModal({
       // Replace the uploading placeholder with the real URL
       setImages((prev) => {
         const next = [...prev];
-        const idx = next.findIndex((s) => s.uploading);
-        if (idx !== -1) next[idx] = { url: publicUrl };
+        const idx = next.findIndex((s) => s.id === placeholderId);
+        if (idx !== -1) next[idx] = { id: placeholderId, url: publicUrl };
         return next;
       });
       pendingUrlsRef.current.add(publicUrl);
@@ -135,6 +226,17 @@ export default function SizeGuideFormModal({
     }
     setImages((prev) => prev.filter((_, i) => i !== index));
     setLightboxIndex(null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setImages((prev) => {
+        const oldIdx = prev.findIndex((img) => img.id === active.id);
+        const newIdx = prev.findIndex((img) => img.id === over.id);
+        return arrayMove(prev, oldIdx, newIdx);
+      });
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -221,65 +323,42 @@ export default function SizeGuideFormModal({
               </span>
             </label>
 
-            <div className="flex flex-wrap gap-2.5">
-              {/* Uploaded / uploading thumbnails */}
-              {images.map((img, i) => (
-                <div
-                  key={i}
-                  className="relative w-24 h-24 rounded-xl overflow-hidden border border-border-light bg-bg shrink-0 group"
-                >
-                  {img.uploading ? (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="w-6 h-6 border-[3px] border-accent/20 border-t-accent rounded-full animate-spin" />
-                    </div>
-                  ) : (
-                    <>
-                      <Image
-                        fill
-                        src={img.url}
-                        alt={`Imagem ${i + 1}`}
-                        className="object-cover cursor-pointer"
-                        sizes="96px"
-                        onClick={() => setLightboxIndex(i)}
-                      />
-                      {/* Hover overlay */}
-                      <div className="absolute inset-0 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 bg-black/25 transition-opacity">
-                        <button
-                          type="button"
-                          onClick={() => setLightboxIndex(i)}
-                          className="flex items-center justify-center w-7 h-7 rounded-full bg-white/90 text-text-dark hover:bg-white transition-colors"
-                          title="Ver imagem"
-                        >
-                          <ZoomIn size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeImage(i)}
-                          className="flex items-center justify-center w-7 h-7 rounded-full bg-white/90 text-danger hover:bg-white transition-colors"
-                          title="Remover"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    </>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={images.map((img) => img.id)}
+                strategy={rectSortingStrategy}
+              >
+                <div className="flex flex-wrap gap-2.5">
+                  {images.map((img, i) => (
+                    <SortableImageItem
+                      key={img.id}
+                      item={img}
+                      index={i}
+                      onZoom={setLightboxIndex}
+                      onRemove={removeImage}
+                    />
+                  ))}
+
+                  {/* "Adicionar imagem" button — always visible when below limit */}
+                  {images.length < MAX_IMAGES && (
+                    <button
+                      type="button"
+                      onClick={handleAddClick}
+                      className="w-24 h-24 rounded-xl border-2 border-dashed border-accent flex flex-col items-center justify-center gap-1 text-text-label hover:border-accent hover:text-accent transition-colors shrink-0"
+                    >
+                      <ImagePlus size={20} />
+                      <span className="text-xs font-figtree text-center text-accent leading-tight px-1">
+                        Adicionar imagem
+                      </span>
+                    </button>
                   )}
                 </div>
-              ))}
-
-              {/* "Adicionar imagem" button — always visible when below limit */}
-              {images.length < MAX_IMAGES && (
-                <button
-                  type="button"
-                  onClick={handleAddClick}
-                  className="w-24 h-24 rounded-xl border-2 border-dashed border-accent flex flex-col items-center justify-center gap-1 text-text-label hover:border-accent hover:text-accent transition-colors shrink-0"
-                >
-                  <ImagePlus size={20} />
-                  <span className="text-xs font-figtree text-center text-accent leading-tight px-1">
-                    Adicionar imagem
-                  </span>
-                </button>
-              )}
-            </div>
+              </SortableContext>
+            </DndContext>
           </div>
 
           {/* Hidden file input */}

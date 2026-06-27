@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSearchOverlay, searchStore } from "@/lib/stores/searchStore";
 import { apiFetch } from "@/lib/api";
 import {
@@ -85,6 +86,7 @@ function categoryUrl(cat: MostSearchedCategory["category"]): string {
 export function SearchOverlay() {
   const isOpen = useSearchOverlay();
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<SearchDocument[] | null>(null);
@@ -109,15 +111,20 @@ export function SearchOverlay() {
     }
   }, [isOpen]);
 
-  // Escape to close
+  // Escape to close; Enter to go to full results page
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") searchStore.close();
+      if (e.key === "Escape") {
+        searchStore.close();
+      } else if (e.key === "Enter" && query.trim()) {
+        searchStore.close();
+        router.push(`/pesquisa?q=${encodeURIComponent(query.trim())}`);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen]);
+  }, [isOpen, query, router]);
 
   // Debounced search
   useEffect(() => {
@@ -198,7 +205,7 @@ export function SearchOverlay() {
                     onClick={searchStore.close}
                     className="flex items-center gap-4 py-3 border-b border-gray-100 last:border-0"
                   >
-                    <div className="relative w-[55px] h-[55px] shrink-0 rounded-[5px] overflow-hidden bg-muted-bg">
+                    <div className="relative w-13.75 h-13.75 shrink-0 rounded-[5px] overflow-hidden bg-muted-bg">
                       {primaryImageUrl(doc) && (
                         <img
                           src={primaryImageUrl(doc)}
@@ -207,7 +214,7 @@ export function SearchOverlay() {
                         />
                       )}
                     </div>
-                    <div className="flex flex-col gap-[7px] flex-1 min-w-0">
+                    <div className="flex flex-col gap-1.75 flex-1 min-w-0">
                       <p className="text-[15px] font-normal tracking-[0.3px] text-brand truncate">
                         {doc.name}
                       </p>
@@ -215,7 +222,7 @@ export function SearchOverlay() {
                         {doc.brandName}
                       </p>
                       <div className="flex items-center justify-between">
-                        <p className="text-[13px] font-bold tracking-[0.26px] text-brand">
+                        <p className="text-h6 font-bold tracking-[0.26px] text-brand">
                           {formatPrice(doc.basePrice)}
                         </p>
                         {doc.colors.length > 0 && (
@@ -243,6 +250,17 @@ export function SearchOverlay() {
                     <ProductCard product={toCardItem(doc)} compact />
                   </div>
                 ))}
+              </div>
+
+              {/* See all results */}
+              <div className="flex justify-center mt-6">
+                <Link
+                  href={`/pesquisa?q=${encodeURIComponent(query.trim())}`}
+                  onClick={searchStore.close}
+                  className="px-8 py-2.5 rounded-lg border border-brand text-sm font-semibold text-brand hover:bg-brand hover:text-white transition-colors duration-150"
+                >
+                  Ver todos os resultados
+                </Link>
               </div>
             </>
           )}
@@ -280,7 +298,7 @@ export function SearchOverlay() {
                         key={id}
                         href={categoryUrl(category)}
                         onClick={searchStore.close}
-                        className="border border-black rounded-[17px] px-5 py-1.5 text-[13px] font-medium text-brand bg-[#fafafa] hover:bg-gray-100 transition-colors"
+                        className="border border-black rounded-[17px] px-5 py-1.5 text-h6 font-medium text-brand bg-[#fafafa] hover:bg-gray-100 transition-colors"
                       >
                         {category.name}
                       </Link>

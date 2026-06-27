@@ -3,12 +3,20 @@
 import { useState, useRef, useEffect } from "react";
 import { SlidersHorizontal, ChevronDown, Check } from "lucide-react";
 
-type Sort = "newest" | "price_asc" | "price_desc";
+export const SORT_VALUES = [
+  "newest", "price_asc", "price_desc", "discount", "popular", "brand_asc", "brand_desc",
+] as const;
+
+export type Sort = typeof SORT_VALUES[number];
 
 const SORT_OPTIONS: { value: Sort; label: string }[] = [
-  { value: "newest", label: "Mais recentes" },
-  { value: "price_asc", label: "Menor preço" },
+  { value: "newest",     label: "Mais recentes" },
+  { value: "price_asc",  label: "Menor preço" },
   { value: "price_desc", label: "Maior preço" },
+  { value: "discount",   label: "% Desconto" },
+  { value: "popular",    label: "Mais vendidos" },
+  { value: "brand_asc",  label: "Marca A–Z" },
+  { value: "brand_desc", label: "Marca Z–A" },
 ];
 
 type Props = {
@@ -102,7 +110,7 @@ export function SortBar({
           </button>
 
           {sortOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-20 min-w-[160px] overflow-hidden">
+            <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-20 min-w-40 overflow-hidden">
               {SORT_OPTIONS.map((o) => (
                 <button
                   key={o.value}

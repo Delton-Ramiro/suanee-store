@@ -10,6 +10,10 @@ interface ServerCartItem {
   variant: {
     id: string;
     stockQuantity: number;
+    price: number | null;
+    hasDiscount: boolean;
+    discountPrice: number | null;
+    isIndicativePrice: boolean;
     color: { id: string; name: string; hexCode: string } | null;
     size: { id: string; name: string; label: string } | null;
     product: {
@@ -55,6 +59,16 @@ function pickVariantImage(
   return media[0]?.url ?? null;
 }
 
+function resolvePrice(
+  variant: ServerCartItem["variant"],
+  product: ServerCartItem["variant"]["product"],
+): number {
+  const basePrice = Number(variant.price ?? product.basePrice);
+  const discountPrice = variant.discountPrice ?? product.discountPrice;
+  const hasDiscount = variant.hasDiscount || product.hasDiscount;
+  return hasDiscount && discountPrice ? Number(discountPrice) : basePrice;
+}
+
 function toLocalCartItem(item: ServerCartItem): CartItem {
   const { variant } = item;
   const { product } = variant;
@@ -74,8 +88,8 @@ function toLocalCartItem(item: ServerCartItem): CartItem {
     sizeId,
     sizeName: variant.size?.label ?? variant.size?.name ?? null,
     categoryName: null,
-    price: Number(product.discountPrice ?? product.basePrice),
-    isIndicativePrice: false,
+    price: resolvePrice(variant, product),
+    isIndicativePrice: variant.isIndicativePrice || product.isIndicativePrice,
     stockQuantity: variant.stockQuantity,
     quantity: item.quantity,
   };

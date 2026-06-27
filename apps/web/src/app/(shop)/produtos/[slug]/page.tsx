@@ -43,6 +43,7 @@ export type ProductDetail = {
   genderScope: string | null;
   keyCharacteristics: string | null;
   productInfo: string | null;
+  safetyInfo: string | null;
   sendPolicy: string | null;
   sizeAndFit: string | null;
   returnPolicy: string | null;
@@ -75,8 +76,19 @@ export type ProductDetail = {
     id: string;
     name: string;
     description: string | null;
-    images: string[];
+    images: Array<{ url: string; position?: number }>;
   } | null;
+  shownWith: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    basePrice: number;
+    isIndicativePrice: boolean;
+    hasDiscount: boolean;
+    discountPrice: number | null;
+    brand: { id: string; name: string; slug: string };
+    media: Array<{ id: string; url: string; mediaType: string; isPrimary: boolean }>;
+  }>;
   relatedProducts: Array<{
     id: string;
     name: string;

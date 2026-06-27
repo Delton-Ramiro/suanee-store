@@ -22,6 +22,8 @@ import {
   AlertTriangle,
   ImagePlus,
   ChevronDown,
+  MapPin,
+  Home,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -752,14 +754,20 @@ export default function OrderDetailPage() {
     cancellationReason?: string;
   }) {
     if (!pendingStatus) return;
-    await apiFetch(`/admin/orders/${id}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: pendingStatus, ...extra }),
-    });
-    toast.success("Estado atualizado");
-    setShowModal(false);
-    setPendingStatus("");
-    invalidate();
+    try {
+      await apiFetch(`/admin/orders/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: pendingStatus, ...extra }),
+      });
+      toast.success("Estado atualizado");
+      setShowModal(false);
+      setPendingStatus("");
+      invalidate();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erro ao atualizar estado",
+      );
+    }
   }
 
   function handleApply() {
@@ -1090,6 +1098,48 @@ export default function OrderDetailPage() {
             </p>
           )}
         </div>
+
+        {/* Delivery card */}
+        {order.deliveryType && (
+          <div className="bg-card rounded-lg shadow-card px-4 py-4 flex flex-col gap-2">
+            <p className="text-s font-bold text-text-dark font-lato">Entrega</p>
+            {order.deliveryType === "pickup" && order.pickPoint ? (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-[12px] text-text-muted font-figtree">
+                  <MapPin size={13} className="text-accent shrink-0" />
+                  <span className="font-semibold text-text-dark">
+                    Ponto de recolha
+                  </span>
+                </div>
+                <div className="bg-bg rounded-lg px-3 py-2.5 border border-border-light flex flex-col gap-0.5 mt-1">
+                  <p className="text-s font-semibold text-text-dark font-lato">
+                    {order.pickPoint.name}
+                  </p>
+                  <p className="text-[12px] text-text-muted font-figtree">
+                    {order.pickPoint.province}
+                  </p>
+                  <p className="text-[12px] text-text-muted font-figtree">
+                    {order.pickPoint.address}
+                  </p>
+                </div>
+              </div>
+            ) : order.deliveryType === "home" ? (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-[12px] text-text-muted font-figtree">
+                  <Home size={13} className="text-accent shrink-0" />
+                  <span className="font-semibold text-text-dark">
+                    Entrega ao domicílio
+                  </span>
+                </div>
+                {order.deliveryAddress && (
+                  <p className="text-s text-text-dark font-figtree bg-bg rounded-lg px-3 py-2.5 border border-border-light mt-1 leading-relaxed">
+                    {order.deliveryAddress}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
 
         {/* Summary card */}
         <div className="bg-card rounded-lg shadow-card px-4 py-4 flex flex-col gap-2">

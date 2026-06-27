@@ -234,7 +234,7 @@ export default async function adminChatsRoutes(fastify: FastifyInstance) {
             mediaUrl: { type: "string", description: "URL of attached media" },
             mediaType: {
               type: "string",
-              enum: ["image", "video"],
+              enum: ["image", "video", "pdf"],
               description: "Type of attached media",
             },
           },
@@ -303,6 +303,82 @@ export default async function adminChatsRoutes(fastify: FastifyInstance) {
         }
 
         return reply.status(201).send(message);
+      },
+    },
+  );
+
+  // GET /admin/chats/:conversationId/cart — client's current cart (for "Ver carrinho")
+  fastify.get<{ Params: { conversationId: string } }>(
+    "/:conversationId/cart",
+    {
+      preHandler: [fastify.requirePermission(Permissions.CHATS_VIEW)],
+      schema: {
+        tags: ["Admin Chats"],
+        security: [{ bearerAuth: [] }],
+        description: "Returns the current cart items for the client in a conversation.",
+        params: {
+          type: "object",
+          required: ["conversationId"],
+          properties: { conversationId: { type: "string", format: "uuid" } },
+        },
+        response: {
+          200: { description: "Cart items", type: "array", items: { type: "object" } },
+          404: { description: "Not found", type: "object", properties: { error: { type: "string" } } },
+        },
+      },
+      handler: async (req, reply) => {
+        const conversation = await prisma.conversation.findUnique({
+          where: { id: req.params.conversationId },
+          select: { userId: true },
+        });
+        if (!conversation)
+          return reply.status(404).send({ error: "Conversation not found" });
+
+        const items = await prisma.cartItem.findMany({
+          where: { userId: conversation.userId },
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                basePrice: true,
+                isIndicativePrice: true,
+                media: {
+                  where: { isDeleted: false },
+                  orderBy: { position: "asc" as const },
+                  select: { url: true, colorId: true },
+                },
+              },
+            },
+            variant: {
+              select: {
+                id: true,
+                price: true,
+                color: { select: { id: true, name: true, hexCode: true } },
+                size: { select: { id: true, name: true, label: true } },
+              },
+            },
+          },
+        });
+        return reply.send({
+          userId: conversation.userId,
+          items: items.map((item) => {
+            const variantColorId = item.variant.color?.id ?? null;
+            const image =
+              item.product.media.find((m) => m.colorId === variantColorId) ??
+              item.product.media.find((m) => m.colorId === null) ??
+              item.product.media[0] ??
+              null;
+            return {
+              ...item,
+              product: {
+                ...item.product,
+                media: image ? [{ url: image.url }] : [],
+              },
+            };
+          }),
+        });
       },
     },
   );

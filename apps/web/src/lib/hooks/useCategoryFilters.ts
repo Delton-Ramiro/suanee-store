@@ -39,12 +39,46 @@ export type BrandOption = {
   logoUrl: string | null;
 };
 
+export type CollectionFilterItem = {
+  id: string;
+  name: string;
+  slug: string;
+  options: { id: string; label: string; value: string }[];
+};
+
 export type CategoryFilters = {
   filters: AttributeFilter[];
   colors: ColorOption[];
   sizes: SizeOption[];
   brands: BrandOption[];
+  collectionFilters?: CollectionFilterItem[];
 };
+
+export function useAllColors() {
+  return useQuery<ColorOption[]>({
+    queryKey: ["all-colors"],
+    queryFn: () => apiFetch<ColorOption[]>("/catalog/colors"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useAllBrands() {
+  return useQuery<BrandOption[]>({
+    queryKey: ["all-brands"],
+    queryFn: () =>
+      apiFetch<{ id: string; name: string; slug: string; logoUrl: string | null }[]>(
+        "/catalog/brands",
+      ).then((rows) =>
+        rows.map((b) => ({
+          id: b.id,
+          name: b.name,
+          slug: b.slug,
+          logoUrl: b.logoUrl,
+        })),
+      ),
+    staleTime: 5 * 60_000,
+  });
+}
 
 export function useCategoryFilters(slug: string, colorSearch?: string) {
   const qs = colorSearch

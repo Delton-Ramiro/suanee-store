@@ -59,13 +59,9 @@ export default async function CategoriaPage({
         <h1 className="font-inter font-medium text-2xl md:text-h2 text-black tracking-[0.02em] leading-none mt-0.5">
           {category.name}
         </h1>
-        {category.description ? (
+        {category.description && (
           <p className="mt-2 text-text-muted text-sm md:text-base leading-normal max-w-xl">
             {category.description}
-          </p>
-        ) : (
-          <p className="mt-2 text-text-muted text-sm md:text-base leading-normal">
-            {`As roupas e acessórios de ${category.name.toLowerCase()} que vai adorar...`}
           </p>
         )}
       </div>

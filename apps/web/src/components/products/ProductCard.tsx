@@ -14,7 +14,7 @@ function discountPercent(base: number, discounted: number): number {
   return Math.round(((base - discounted) / base) * 100);
 }
 
-const MAX_SWATCHES = 5;
+const MAX_SWATCHES = 2;
 
 export interface ProductCardItem {
   id: string;
@@ -127,15 +127,15 @@ export function ProductCard({
         {/* Tags — flush to top-left corner, stacked vertically */}
         <div className="absolute top-0 left-0 flex flex-col pointer-events-none">
           {product.isIndicativePrice && (
-            <span className="text-[10px] font-normal text-primary bg-white px-[16px] py-[2px] leading-tight rounded-tl-[5px] tracking-[0.2px]">
+            <span className="text-[10px] font-normal text-primary bg-transparent px-[16px] py-2 leading-tight rounded-tl-[5px] tracking-[0.2px] backdrop-blur-[2px]">
               Preço indicativo
             </span>
           )}
-          {product.hasDiscount && discountPrice !== null && (
-            <span className="text-[10px] font-bold text-white bg-brand px-3 py-[2px] leading-tight tracking-[0.2px]">
+          {/* {product.hasDiscount && discountPrice !== null && (
+            <span className="text-[10px] font-bold text-white bg-brand/80 px-3 py-[2px] leading-tight tracking-[0.2px] backdrop-blur-[2px]">
               {discountPercent(basePrice, discountPrice)}% Off
             </span>
-          )}
+          )} */}
         </div>
 
         {/* Heart — top right */}
@@ -191,7 +191,7 @@ export function ProductCard({
         <div className="flex flex-col gap-1">
           <p
             className={`font-bold text-brand leading-tight tracking-[0.38px] ${
-              compact ? "text-h6" : "text-h5"
+              compact ? "text-h6" : "txs-sm md:text-h5"
             }`}
           >
             {product.brand.name}
@@ -233,13 +233,35 @@ export function ProductCard({
         ) : (
           /* Default — price + swatches inline */
           <div className="flex items-center justify-between gap-2 pr-6.25">
-            <span
-              className={`text-[16px] font-bold whitespace-nowrap tracking-[0.32px] ${
-                product.isIndicativePrice ? "text-accent" : "text-brand"
-              }`}
-            >
-              {formatPrice(basePrice)}
-            </span>
+            {product.hasDiscount && product.discountPrice != null ? (
+              <>
+                <span
+                  className={`text-sm md:text-[16px] font-bold whitespace-nowrap tracking-[0.32px] `}
+                >
+                  {formatPrice(discountPrice)}
+                </span>
+
+                <span
+                  className={`text-xs md:text-[16px] line-through font-bold whitespace-nowrap tracking-[0.32px] ${
+                    product.isIndicativePrice ? "text-border" : "text-brand"
+                  }`}
+                >
+                  {formatPrice(basePrice)
+                    .toLocaleLowerCase()
+                    .replace("mzn", "")}
+                </span>
+              </>
+            ) : (
+              <>
+                <span
+                  className={`text-sm md:text-[16px] font-bold whitespace-nowrap tracking-[0.32px] ${
+                    product.isIndicativePrice ? "text-accent" : "text-brand"
+                  }`}
+                >
+                  {formatPrice(basePrice)}
+                </span>
+              </>
+            )}
 
             {colorSwatches.length > 0 && (
               <div className="flex items-center gap-1.25 flex-none">
