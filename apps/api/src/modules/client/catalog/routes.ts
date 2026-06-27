@@ -821,6 +821,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           genderScope: true,
           keyCharacteristics: true,
           productInfo: true,
+          safetyInfo: true,
           sendPolicy: true,
           sizeAndFit: true,
           returnPolicy: true,
@@ -891,6 +892,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
             },
           },
           relatedProducts: {
+            orderBy: { position: "asc" },
             select: {
               target: {
                 select: {
@@ -926,20 +928,44 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
               },
             },
           },
+          shownWithSource: {
+            orderBy: { position: "asc" },
+            select: {
+              target: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  basePrice: true,
+                  isIndicativePrice: true,
+                  hasDiscount: true,
+                  discountPrice: true,
+                  brand: { select: { id: true, name: true, slug: true } },
+                  media: {
+                    where: { isPrimary: true, isDeleted: false } as never,
+                    take: 1,
+                    orderBy: { position: "asc" },
+                    select: { id: true, url: true, mediaType: true, isPrimary: true },
+                  },
+                },
+              },
+            },
+          },
         },
       });
 
       if (!product)
         return reply.status(404).send({ error: "Product not found" });
 
-      // Flatten relatedProducts join table rows, deduplicating variant colors
-      const { relatedProducts: relatedRows, ...productRest } =
+      // Flatten relatedProducts and shownWithSource join table rows
+      const { relatedProducts: relatedRows, shownWithSource: shownRows, ...productRest } =
         product as typeof product & {
           relatedProducts: Array<{
             target: {
               variants?: Array<{ colorId: string | null; color: unknown }>;
             } & Record<string, unknown>;
           }>;
+          shownWithSource: Array<{ target: Record<string, unknown> }>;
         };
       return reply.send({
         ...productRest,
@@ -953,6 +979,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
           });
           return { ...target, variants };
         }),
+        shownWith: (shownRows ?? []).map((r) => r.target),
       });
     },
   });

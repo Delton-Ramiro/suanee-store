@@ -465,6 +465,7 @@ model Product {
   isVisible          Boolean       @default(true)
   keyCharacteristics String?
   productInfo        String?
+  safetyInfo         String?
   sendPolicy         String?
   sizeAndFit         String?
   returnPolicy       String?
@@ -496,6 +497,8 @@ model Product {
   cartItems         CartItem[]
   relatedProducts   ProductRelated[]    @relation("ProductSource")
   relatedByProducts ProductRelated[]    @relation("ProductTarget")
+  shownWithSource   ProductShownWith[]  @relation("ProductShownWithSource")
+  shownWithTarget   ProductShownWith[]  @relation("ProductShownWithTarget")
 
   @@index([brandId])
   @@index([status, isVisible])
@@ -506,6 +509,7 @@ model Product {
 model ProductRelated {
   sourceId String
   targetId String
+  position Int    @default(0)
 
   source Product @relation("ProductSource", fields: [sourceId], references: [id], onDelete: Cascade)
   target Product @relation("ProductTarget", fields: [targetId], references: [id], onDelete: Cascade)
@@ -513,6 +517,19 @@ model ProductRelated {
   @@id([sourceId, targetId])
   @@index([sourceId])
   @@map("product_related")
+}
+
+model ProductShownWith {
+  sourceId String
+  targetId String
+  position Int    @default(0)
+
+  source Product @relation("ProductShownWithSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Product @relation("ProductShownWithTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([sourceId, targetId])
+  @@index([sourceId])
+  @@map("product_shown_with")
 }
 
 model ProductCategory {

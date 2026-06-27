@@ -182,6 +182,50 @@ export const UpdateAttributeDefinitionSchema = z.object({
     .optional(),
 });
 
+// ─── Collection Filter Definition ────────────────────────────────────────────
+
+export const CreateCollectionFilterSchema = z.object({
+  collectionIds: z.array(z.string().uuid()).min(1),
+  name: z.string().min(1).max(100),
+  slug: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
+  inputType: InputType.default("multi_select"),
+  position: z.number().int().default(0),
+  isActive: z.boolean().default(true),
+  options: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(100),
+        value: z.string().min(1).max(100),
+        position: z.number().int().default(0),
+      }),
+    )
+    .min(1),
+});
+
+export const UpdateCollectionFilterSchema = z.object({
+  collectionIds: z.array(z.string().uuid()).min(1).optional(),
+  name: z.string().min(1).max(100).optional(),
+  slug: z.string().min(1).max(100).optional(),
+  inputType: InputType.optional(),
+  position: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+  options: z
+    .array(
+      z.object({
+        id: z.string().uuid().optional(),
+        label: z.string().min(1).max(100),
+        value: z.string().min(1).max(100),
+        position: z.number().int().default(0),
+      }),
+    )
+    .optional(),
+});
+
 // ─── Product ──────────────────────────────────────────────────────────────────
 
 export const PolicyItemSchema = z.object({
@@ -212,6 +256,11 @@ export const ProductAttributeInputSchema = z.object({
   attributeOptionIds: z.array(z.string().uuid()).min(1),
 });
 
+export const ProductCollectionFilterAttributeInputSchema = z.object({
+  collectionFilterId: z.string().uuid(),
+  collectionFilterOptionIds: z.array(z.string().uuid()).min(1),
+});
+
 export const CreateProductBaseSchema = z.object({
   brandId: z.string().uuid(),
   collectionIds: z.array(z.string().uuid()).optional(),
@@ -232,6 +281,7 @@ export const CreateProductBaseSchema = z.object({
   isVisible: z.boolean().default(true),
   keyCharacteristics: z.string().optional(),
   productInfo: z.string().optional(),
+  safetyInfo: z.string().optional(),
   sendPolicy: z.string().optional(),
   sizeAndFit: z.string().optional(),
   returnPolicy: z.string().optional(),
@@ -245,6 +295,10 @@ export const CreateProductBaseSchema = z.object({
   variants: z.array(ProductVariantInputSchema).optional(),
   media: z.array(ProductMediaInputSchema).optional(),
   attributes: z.array(ProductAttributeInputSchema).optional(),
+  collectionFilterAttributes: z
+    .array(ProductCollectionFilterAttributeInputSchema)
+    .optional(),
+  tags: z.array(z.string().max(50)).optional(),
 });
 
 export const CreateProductSchema = CreateProductBaseSchema.refine(
@@ -355,12 +409,19 @@ export const StorySlideInputSchema = z.object({
 
 export const CreateStorySchema = z.object({
   name: z.string().min(1).max(200),
-  thumbnailUrl: z.string().url().optional(),
+  thumbnailUrl: z.string().url().nullable().optional(),
+  isActive: z.boolean().default(true),
   position: z.number().int().default(0),
   slides: z.array(StorySlideInputSchema).min(1),
 });
 
-export const UpdateStorySchema = CreateStorySchema.partial();
+export const UpdateStorySchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  thumbnailUrl: z.string().url().nullable().optional(),
+  isActive: z.boolean().optional(),
+  position: z.number().int().optional(),
+  slides: z.array(StorySlideInputSchema).optional(),
+});
 
 // ─── Most Searched ────────────────────────────────────────────────────────────
 
@@ -489,6 +550,46 @@ export const VisitorSessionSchema = z.object({
   platform: Platform,
 });
 
+// ─── Popup Modals ─────────────────────────────────────────────────────────────
+
+export const CreatePopupModalSchema = z.object({
+  name: z.string().min(1).max(200),
+  imageUrl: z.string().url(),
+  redirectUrl: z.string().url().optional().nullable(),
+  isActive: z.boolean().default(false),
+});
+
+export const UpdatePopupModalSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  imageUrl: z.string().url().optional(),
+  redirectUrl: z.string().url().optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+
+// ─── Top Bars ─────────────────────────────────────────────────────────────────
+
+export const TopBarTimerMode = z.enum(["duration", "deadline"]);
+
+export const CreateTopBarSchema = z.object({
+  text: z.string().min(1).max(500),
+  linkUrl: z.string().url().optional().nullable(),
+  linkLabel: z.string().max(100).optional().nullable(),
+  timerMode: TopBarTimerMode.optional().nullable(),
+  timerSeconds: z.number().int().min(1).optional().nullable(),
+  timerDeadline: z.string().datetime().optional().nullable(),
+  isActive: z.boolean().default(false),
+});
+
+export const UpdateTopBarSchema = z.object({
+  text: z.string().min(1).max(500).optional(),
+  linkUrl: z.string().url().optional().nullable(),
+  linkLabel: z.string().max(100).optional().nullable(),
+  timerMode: TopBarTimerMode.optional().nullable(),
+  timerSeconds: z.number().int().min(1).optional().nullable(),
+  timerDeadline: z.string().datetime().optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+
 // ─── Permission Bitmask Constants ─────────────────────────────────────────────
 
 export const Permissions = {
@@ -511,6 +612,7 @@ export const Permissions = {
   CHATS_VIEW: 1 << 16, // 65536
   ANALYTICS_VIEW: 1 << 17, // 131072
   AUTHORITY_MANAGE: 1 << 18, // 262144
+  POPUP_MODALS_EDIT: 1 << 19, // 524288
 } as const;
 
 export const ALL_PERMISSIONS = Object.values(Permissions).reduce(
@@ -526,7 +628,8 @@ export const MANAGE_STRUCTURE =
   Permissions.FILTERS_EDIT |
   Permissions.MOST_SEARCHED_EDIT |
   Permissions.STORIES_EDIT |
-  Permissions.CURRENCY_EDIT;
+  Permissions.CURRENCY_EDIT |
+  Permissions.POPUP_MODALS_EDIT;
 
 export const MANAGE_PRODUCTS =
   Permissions.PRODUCTS_VIEW |

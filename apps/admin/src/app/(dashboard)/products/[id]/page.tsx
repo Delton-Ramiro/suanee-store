@@ -2,14 +2,32 @@
 
 import { use, useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Save, X } from "lucide-react";
+import { GripVertical, Plus, Save, X } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   useAdminProduct,
   useUpdateProduct,
   useRelatedProducts,
   useUpdateRelatedProducts,
+  useShownWithProducts,
+  useUpdateShownWithProducts,
   type RelatedProductItem,
+  type ShownWithItem,
 } from "@/lib/hooks/useAdminProduct";
 import type { MediaDraft } from "@/components/products/ProductMediaZone";
 import ProductMediaZone from "@/components/products/ProductMediaZone";
@@ -201,6 +219,227 @@ function newCompetitor(): CompetitorEntry {
   };
 }
 
+/* ── Generic sortable product item (used for both panels) ──────────────────── */
+
+function SortableShownWithItem({
+  item,
+  onRemove,
+  canEdit,
+}: {
+  item: ShownWithItem | RelatedProductItem;
+  onRemove: () => void;
+  canEdit: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+  const thumb = item.media?.[0]?.url ?? null;
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 p-3 rounded-xl border border-border-light bg-card hover:bg-surface-hover transition-colors"
+    >
+      {canEdit && (
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="shrink-0 text-text-muted cursor-grab active:cursor-grabbing touch-none"
+          aria-label="Reordenar"
+        >
+          <GripVertical size={16} />
+        </button>
+      )}
+      <div className="w-12 h-12 rounded-lg overflow-hidden bg-surface-hover shrink-0 border border-border-light">
+        {thumb ? (
+          <img
+            src={thumb}
+            alt={item.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-border" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-text-dark font-figtree truncate">
+          {item.name}
+        </p>
+        <p className="text-xs text-text-muted font-figtree">
+          {item.brand?.name}
+        </p>
+      </div>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 w-7 h-7 rounded-full bg-danger/10 text-danger flex items-center justify-center hover:bg-danger hover:text-white transition-colors"
+          aria-label="Remover"
+        >
+          <X size={13} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SortableLinkedProductsPanel({
+  title,
+  subtitle,
+  items,
+  onReorder,
+  onRemove,
+  canEdit,
+  sensors,
+  isSaving,
+  onSave,
+  searchValue,
+  onSearchChange,
+  isSearching,
+  searchResults,
+  onAddResult,
+}: {
+  title: string;
+  subtitle: string;
+  items: (ShownWithItem | RelatedProductItem)[];
+  onReorder: (next: (ShownWithItem | RelatedProductItem)[]) => void;
+  onRemove: (id: string) => void;
+  canEdit: boolean;
+  sensors: ReturnType<typeof useSensors>;
+  isSaving: boolean;
+  onSave: () => void;
+  searchValue: string;
+  onSearchChange: (v: string) => void;
+  isSearching: boolean;
+  searchResults: RelatedProductItem[];
+  onAddResult: (item: RelatedProductItem) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <SectionHeading>{title}</SectionHeading>
+          <p className="text-xs text-text-muted font-figtree mt-1">{subtitle}</p>
+        </div>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={isSaving}
+            className="shrink-0 h-10 px-4 rounded-xl bg-navy text-white text-s font-semibold font-figtree hover:bg-primary transition-colors disabled:opacity-50"
+          >
+            {isSaving ? "A guardar…" : "Guardar"}
+          </button>
+        )}
+      </div>
+
+      {items.length > 0 && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={(event: DragEndEvent) => {
+            const { active, over } = event;
+            if (!over || active.id === over.id) return;
+            const oldIndex = items.findIndex((p) => p.id === String(active.id));
+            const newIndex = items.findIndex((p) => p.id === String(over.id));
+            onReorder(arrayMove([...items], oldIndex, newIndex));
+          }}
+        >
+          <SortableContext
+            items={items.map((p) => p.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="flex flex-col gap-2">
+              {items.map((item) => (
+                <SortableShownWithItem
+                  key={item.id}
+                  item={item}
+                  canEdit={canEdit}
+                  onRemove={() => onRemove(item.id)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {items.length === 0 && !canEdit && (
+        <p className="text-sm text-text-muted font-figtree">
+          Nenhum produto associado.
+        </p>
+      )}
+
+      {canEdit && (
+        <div className="relative">
+          <input
+            type="text"
+            value={searchValue}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Adicionar produto…"
+            className="w-full h-12 px-3 rounded-xl border border-border bg-card text-text-dark text-sm font-figtree placeholder:text-text-label focus:outline-none focus:border-accent transition-colors"
+          />
+          {(isSearching || searchResults.length > 0) && (
+            <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+              {isSearching && (
+                <p className="px-4 py-3 text-sm text-text-muted font-figtree">
+                  A pesquisar…
+                </p>
+              )}
+              {!isSearching && searchResults.length === 0 && (
+                <p className="px-4 py-3 text-sm text-text-muted font-figtree">
+                  Sem resultados
+                </p>
+              )}
+              {searchResults.map((p) => {
+                const thumb = p.media?.[0]?.url ?? null;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onAddResult(p)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-hover transition-colors border-b border-border-light last:border-0"
+                  >
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-surface-hover shrink-0">
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt={p.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-border" />
+                      )}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm text-text-dark font-figtree truncate">
+                        {p.name}
+                      </p>
+                      <p className="text-xs text-text-muted font-figtree">
+                        {p.brand?.name}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Page ──────────────────────────────────────────────────────────────────── */
 
 export default function ProductEditPage({
@@ -219,6 +458,8 @@ export default function ProductEditPage({
   const updateProduct = useUpdateProduct(id);
   const { data: existingRelated } = useRelatedProducts(id);
   const updateRelated = useUpdateRelatedProducts(id);
+  const { data: existingShownWith } = useShownWithProducts(id);
+  const updateShownWith = useUpdateShownWithProducts(id);
 
   /* Reference data */
   const { data: brandsData } = useBrands({ limit: 10 });
@@ -250,6 +491,7 @@ export default function ProductEditPage({
   );
   const [keyCharacteristics, setKeyCharacteristics] = useState("");
   const [productInfo, setProductInfo] = useState("");
+  const [safetyInfo, setSafetyInfo] = useState("");
   const [sendPolicy, setSendPolicy] = useState("");
   const [sizeAndFit, setSizeAndFit] = useState("");
   const [returnPolicy, setReturnPolicy] = useState("");
@@ -350,9 +592,32 @@ export default function ProductEditPage({
   const [relatedSearching, setRelatedSearching] = useState(false);
   const relatedSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /* ── Shown-here-with state ─────────────────────────────────────────────── */
+  const [shownWithProducts, setShownWithProducts] = useState<ShownWithItem[]>(
+    [],
+  );
+  const [shownWithSearch, setShownWithSearch] = useState("");
+  const [shownWithResults, setShownWithResults] = useState<
+    RelatedProductItem[]
+  >([]);
+  const [shownWithSearching, setShownWithSearching] = useState(false);
+  const shownWithSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const shownWithSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+  const relatedSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
   useEffect(() => {
     if (existingRelated) setRelatedProducts(existingRelated);
   }, [existingRelated]);
+
+  useEffect(() => {
+    if (existingShownWith) setShownWithProducts(existingShownWith);
+  }, [existingShownWith]);
 
   useEffect(() => {
     if (!relatedSearch.trim()) {
@@ -378,6 +643,32 @@ export default function ProductEditPage({
     }, 300);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relatedSearch, id]);
+
+  useEffect(() => {
+    if (!shownWithSearch.trim()) {
+      setShownWithResults([]);
+      return;
+    }
+    if (shownWithSearchTimer.current)
+      clearTimeout(shownWithSearchTimer.current);
+    shownWithSearchTimer.current = setTimeout(async () => {
+      setShownWithSearching(true);
+      try {
+        const res = await apiFetch<{ items: RelatedProductItem[] }>(
+          `/admin/products?search=${encodeURIComponent(shownWithSearch)}&limit=10`,
+        );
+        const existing = new Set(shownWithProducts.map((p) => p.id));
+        setShownWithResults(
+          (res.items ?? []).filter((p) => p.id !== id && !existing.has(p.id)),
+        );
+      } catch {
+        /* ignore */
+      } finally {
+        setShownWithSearching(false);
+      }
+    }, 300);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownWithSearch, id]);
   useEffect(() => {
     if (!product) return;
     setName(product.name);
@@ -392,6 +683,7 @@ export default function ProductEditPage({
     setStockStatus(product.stockStatus);
     setKeyCharacteristics(product.keyCharacteristics ?? "");
     setProductInfo(product.productInfo ?? "");
+    setSafetyInfo(product.safetyInfo ?? "");
     setSendPolicy(product.sendPolicy ?? "");
     setSizeAndFit(
       (product as unknown as { sizeAndFit?: string }).sizeAndFit ?? "",
@@ -1063,7 +1355,10 @@ export default function ProductEditPage({
         next[idx] = { ...next[idx]!, values };
         return next;
       }
-      return [...prev, { filterId: filter.id, filterName: filter.name, values }];
+      return [
+        ...prev,
+        { filterId: filter.id, filterName: filter.name, values },
+      ];
     });
 
     setSelectedColFilterId("");
@@ -1163,6 +1458,7 @@ export default function ProductEditPage({
       isVisible: isListed,
       keyCharacteristics: keyCharacteristics || undefined,
       productInfo: productInfo || undefined,
+      safetyInfo: safetyInfo || undefined,
       sendPolicy: sendPolicy || undefined,
       sizeAndFit: sizeAndFit || undefined,
       returnPolicy: returnPolicy || undefined,
@@ -1465,7 +1761,8 @@ export default function ProductEditPage({
                   disabled={!canEditProduct}
                 />
                 <p className="mt-1.5 text-xs text-text-muted font-figtree">
-                  Prima Enter ou vírgula para adicionar. Os utilizadores encontram este produto ao pesquisar estas palavras.
+                  Prima Enter ou vírgula para adicionar. Os utilizadores
+                  encontram este produto ao pesquisar estas palavras.
                 </p>
               </div>
             </div>
@@ -1568,6 +1865,20 @@ export default function ProductEditPage({
                   rows={5}
                 />
               </div>
+              <div>
+                <FieldLabel>Informações de segurança do produto</FieldLabel>
+                <Textarea
+                  value={safetyInfo}
+                  onChange={setSafetyInfo}
+                  placeholder="Avisos de segurança, instruções de uso seguro, advertências…"
+                  rows={5}
+                />
+              </div>
+            </div>
+
+            {/* Informações de envio e devolução */}
+            <div className="flex flex-col gap-5">
+              <SectionHeading>Envio e devolução</SectionHeading>
               <div>
                 <FieldLabel>Política de envio</FieldLabel>
                 <Textarea
@@ -2630,153 +2941,90 @@ export default function ProductEditPage({
           </div>
         </div>
 
-        {/* ════════════════════ TAMBÉM PODE GOSTAR ══════════════════════════ */}
-        <div className="bg-card rounded-2xl p-6 flex flex-col gap-5">
-          <div className="flex items-center justify-between">
-            <SectionHeading>Também pode gostar</SectionHeading>
-            {canEditProduct && relatedProducts.length > 0 && (
-              <button
-                type="button"
-                onClick={() =>
-                  updateRelated.mutate(relatedProducts.map((p) => p.id))
-                }
-                disabled={updateRelated.isPending}
-                className="h-10 px-5 rounded-xl bg-navy text-white text-s font-semibold font-figtree hover:bg-primary transition-colors disabled:opacity-50"
-              >
-                {updateRelated.isPending ? "A guardar…" : "Guardar"}
-              </button>
-            )}
-          </div>
-
-          {/* Selected products preview */}
-          {relatedProducts.length > 0 && (
-            <div className="flex gap-3 overflow-x-auto py-4 no-scrollbar">
-              {relatedProducts.map((p) => {
-                const thumb = p.media?.[0]?.url ?? null;
-                return (
-                  <div key={p.id} className="relative shrink-0 w-[100px]">
-                    <div className="w-[100px] h-[100px] rounded-xl overflow-hidden bg-surface-hover border border-border-light">
-                      {thumb ? (
-                        <img
-                          src={thumb}
-                          alt={p.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">
-                          Sem imagem
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-text-dark font-figtree truncate mt-1">
-                      {p.name}
-                    </p>
-                    {canEditProduct && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setRelatedProducts((prev) =>
-                            prev.filter((x) => x.id !== p.id),
-                          )
-                        }
-                        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white flex items-center justify-center hover:opacity-80 transition-opacity"
-                        aria-label="Remover"
-                      >
-                        <X size={11} />
-                      </button>
-                    )}
-                  </div>
+        {/* ══════════════ TAMBÉM PODE GOSTAR + SHOWN HERE WITH ════════════════ */}
+        <div className="bg-card rounded-2xl p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 ">
+            {/* ── Left: Também pode gostar ───────────────────────────────── */}
+            <SortableLinkedProductsPanel
+              title="Também pode gostar"
+              subtitle="Arraste para reordenar."
+              items={relatedProducts}
+              onReorder={(next) =>
+                setRelatedProducts(next as RelatedProductItem[])
+              }
+              onRemove={(id) =>
+                setRelatedProducts((prev) => prev.filter((p) => p.id !== id))
+              }
+              canEdit={canEditProduct}
+              sensors={relatedSensors}
+              isSaving={updateRelated.isPending}
+              onSave={() =>
+                updateRelated.mutate(
+                  relatedProducts.map((p, i) => ({
+                    productId: p.id,
+                    position: i,
+                  })),
+                )
+              }
+              searchValue={relatedSearch}
+              onSearchChange={setRelatedSearch}
+              isSearching={relatedSearching}
+              searchResults={relatedResults}
+              onAddResult={(p) => {
+                setRelatedProducts((prev) =>
+                  prev.find((x) => x.id === p.id)
+                    ? prev
+                    : [...prev, { ...p, position: prev.length }],
                 );
-              })}
-            </div>
-          )}
+                setRelatedSearch("");
+                setRelatedResults([]);
+              }}
+            />
 
-          {/* Search */}
-          {canEditProduct && (
-            <div className="relative">
-              <input
-                type="text"
-                value={relatedSearch}
-                onChange={(e) => setRelatedSearch(e.target.value)}
-                placeholder="Pesquisar produto…"
-                className="w-72 h-12 px-3 rounded-xl border border-border bg-card text-text-dark text-sm font-figtree placeholder:text-text-label focus:outline-none focus:border-accent transition-colors"
+            {/* ── Right: Shown here with ─────────────────────────────────── */}
+            <div className="lg:pl-6">
+              <SortableLinkedProductsPanel
+                title="Modelo está vestindo"
+                subtitle="Produtos que o modelo usa. Arraste para reordenar."
+                items={shownWithProducts}
+                onReorder={(next) =>
+                  setShownWithProducts(next as ShownWithItem[])
+                }
+                onRemove={(id) =>
+                  setShownWithProducts((prev) =>
+                    prev.filter((p) => p.id !== id),
+                  )
+                }
+                canEdit={canEditProduct}
+                sensors={shownWithSensors}
+                isSaving={updateShownWith.isPending}
+                onSave={() =>
+                  updateShownWith.mutate(
+                    shownWithProducts.map((p, i) => ({
+                      productId: p.id,
+                      position: i,
+                    })),
+                  )
+                }
+                searchValue={shownWithSearch}
+                onSearchChange={setShownWithSearch}
+                isSearching={shownWithSearching}
+                searchResults={shownWithResults}
+                onAddResult={(p) => {
+                  setShownWithProducts((prev) =>
+                    prev.find((x) => x.id === p.id)
+                      ? prev
+                      : [...prev, { ...(p as ShownWithItem), position: prev.length }],
+                  );
+                  setShownWithSearch("");
+                  setShownWithResults([]);
+                }}
               />
-              {(relatedSearching || relatedResults.length > 0) && (
-                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden max-h-72 overflow-y-auto">
-                  {relatedSearching && (
-                    <p className="px-4 py-3 text-sm text-text-muted font-figtree">
-                      A pesquisar…
-                    </p>
-                  )}
-                  {!relatedSearching && relatedResults.length === 0 && (
-                    <p className="px-4 py-3 text-sm text-text-muted font-figtree">
-                      Sem resultados
-                    </p>
-                  )}
-                  {relatedResults.map((p) => {
-                    const thumb = p.media?.[0]?.url ?? null;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          setRelatedProducts((prev) =>
-                            prev.find((x) => x.id === p.id)
-                              ? prev
-                              : [...prev, p],
-                          );
-                          setRelatedSearch("");
-                          setRelatedResults([]);
-                        }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-surface-hover transition-colors border-b border-border-light last:border-0"
-                      >
-                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-surface-hover shrink-0">
-                          {thumb ? (
-                            <img
-                              src={thumb}
-                              alt={p.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-border" />
-                          )}
-                        </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <p className="text-sm text-text-dark font-figtree truncate">
-                            {p.name}
-                          </p>
-                          <p className="text-xs text-text-muted font-figtree">
-                            {p.brand?.name}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
-          )}
-
-          {relatedProducts.length === 0 && !canEditProduct && (
-            <p className="text-sm text-text-muted font-figtree">
-              Nenhum produto associado.
-            </p>
-          )}
-
-          {/* Save button when there's no header button (empty list) */}
-          {canEditProduct && relatedProducts.length === 0 && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => updateRelated.mutate([])}
-                disabled={updateRelated.isPending}
-                className="h-10 px-5 rounded-xl bg-navy text-white text-s font-semibold font-figtree hover:bg-primary transition-colors disabled:opacity-50"
-              >
-                {updateRelated.isPending ? "A guardar…" : "Guardar"}
-              </button>
-            </div>
-          )}
+          </div>
+          {/* end grid */}
         </div>
+        {/* end combined card */}
 
         {/* ════════════════════ ANÁLISE FINANCEIRA ══════════════════════════ */}
         <div className="bg-card rounded-2xl p-6 flex flex-col gap-5">

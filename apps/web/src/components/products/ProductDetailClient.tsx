@@ -326,6 +326,81 @@ function SizeGuideDrawer({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
+/* Shown Here With                                                              */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+type ShownWithProduct = ProductDetail["shownWith"][number];
+
+function ShownHereWith({ items }: { items: ShownWithProduct[] }) {
+  return (
+    <div className="py-4">
+      {/* Label */}
+      <p className="text-[10px] tracking-[0.2em] uppercase text-text-muted font-medium mb-3">
+        Modelo está vestindo
+      </p>
+
+      {/* Cards row */}
+      <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-1 px-1">
+        {items.map((item) => {
+          const thumb =
+            item.media.find((m) => m.isPrimary)?.url ??
+            item.media[0]?.url ??
+            null;
+          const displayPrice =
+            item.hasDiscount && item.discountPrice
+              ? item.discountPrice
+              : item.basePrice;
+          return (
+            <Link
+              key={item.id}
+              href={`/produtos/${item.slug}`}
+              className="group shrink-0 w-[120px] flex flex-col gap-1.5"
+            >
+              {/* Image */}
+              <div className="relative w-[120px] h-[150px] overflow-hidden bg-muted-bg">
+                {thumb ? (
+                  <img
+                    src={thumb}
+                    alt={item.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-border" />
+                )}
+                {item.hasDiscount && item.discountPrice && (
+                  <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-white bg-brand leading-none">
+                    -
+                    {Math.round(
+                      (1 - item.discountPrice / item.basePrice) * 100,
+                    )}
+                    %
+                  </span>
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="flex flex-col gap-0.5">
+                <p className="text-[10px] font-bold text-brand uppercase tracking-wide leading-none truncate">
+                  {item.brand.name}
+                </p>
+                <p className="text-[11px] text-text-muted leading-snug line-clamp-2">
+                  {item.name}
+                </p>
+                <p
+                  className={`text-[11px] font-semibold leading-none ${item.isIndicativePrice ? "text-accent" : "text-brand"}`}
+                >
+                  {formatPrice(displayPrice)} MZN
+                </p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
 /* Main component                                                               */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
@@ -720,6 +795,16 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
             <AccordionItem title="Informação do produto">
               {product.productInfo ?? "Informação não disponível."}
             </AccordionItem>
+
+            {product.shownWith && product.shownWith.length > 0 && (
+              <ShownHereWith items={product.shownWith} />
+            )}
+
+            {product.safetyInfo && (
+              <AccordionItem title="Informação de segurança do produto">
+                {product.safetyInfo}
+              </AccordionItem>
+            )}
 
             <AccordionItem title="Política de envio" subtitle="">
               {product.sendPolicy ?? "Informação não disponível."}
