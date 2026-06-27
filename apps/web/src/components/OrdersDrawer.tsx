@@ -114,7 +114,7 @@ function OrderAccordion({
 
       <div
         className={`overflow-hidden transition-all duration-300 ease-out ${
-          expanded ? "max-h-[2000px] pb-3" : "max-h-0"
+          expanded ? "max-h-500 pb-3" : "max-h-0"
         }`}
       >
         {order.items.map((item) => {
@@ -153,13 +153,13 @@ export function OrdersDrawer() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen || !user || orders !== null) return;
+    if (!isOpen || !user) return;
     setLoading(true);
     authFetch<{ items: Order[] }>("/orders?limit=50")
-      .then(({ items }) => setOrders(items.filter((o) => o.status !== "pending")))
+      .then(({ items }) => setOrders(items))
       .catch(() => setOrders([]))
       .finally(() => setLoading(false));
-  }, [isOpen, user, orders]);
+  }, [isOpen, user]);
 
   useEffect(() => {
     if (!user) {

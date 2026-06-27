@@ -697,6 +697,9 @@ model Order {
   returnReason       String?
   returnProof        String?
   cancellationReason String?
+  pickPointId        String?
+  deliveryType       String?     // "pickup" | "home"
+  deliveryAddress    String?     // free-text address for home delivery
   subtotal           Decimal     @db.Decimal(10, 2)
   shippingCost       Decimal     @default(0) @db.Decimal(10, 2)
   total              Decimal     @db.Decimal(10, 2)
@@ -713,6 +716,7 @@ model Order {
   user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
   processedBy  AdminUser?   @relation("ProcessedBy", fields: [processedById], references: [id], onDelete: SetNull)
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  pickPoint    PickPoint?   @relation(fields: [pickPointId], references: [id], onDelete: SetNull)
   items        OrderItem[]
 
   @@index([userId])
@@ -723,6 +727,7 @@ model Order {
   @@index([returnedAt])
   @@index([cancelledAt])
   @@index([userId, createdAt])
+  @@index([pickPointId])
   @@map("orders")
 }
 
@@ -894,6 +899,8 @@ model PickPoint {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  orders Order[]
 
   @@index([province])
   @@index([isActive])

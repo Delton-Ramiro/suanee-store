@@ -235,7 +235,7 @@ export default function ClientDetailPanel({
               <div className="px-4 py-3 border-t border-border-light shrink-0">
                 <Link
                   href={`/orders/${orderId}`}
-                  className="flex items-center justify-center gap-2 w-full h-9 rounded-lg border border-accent text-accent text-s font-lato font-medium hover:bg-accent/5 transition-colors"
+                  className="flex items-center justify-center gap-2 w-full h-9 rounded-lg border border-accent text-white text-s font-lato font-medium hover:bg-accent/5 transition-colors"
                 >
                   <ClipboardList size={15} />
                   Ver detalhes da encomenda

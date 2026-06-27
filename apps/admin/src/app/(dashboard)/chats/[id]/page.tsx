@@ -245,7 +245,6 @@ function CreateOrderModal({
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-xl w-full max-w-md flex flex-col gap-0">
-        {/* Header */}
         <div className="px-5 py-4 border-b border-border-light">
           <p className="text-md font-bold text-text-dark font-lato">
             Criar encomenda
@@ -257,7 +256,6 @@ function CreateOrderModal({
         </div>
 
         <div className="px-5 py-4 flex flex-col gap-4">
-          {/* Items summary */}
           <div className="flex flex-col gap-3 max-h-48 overflow-y-auto">
             {cartItems.map((item) => (
               <div key={item.id} className="flex items-center gap-3">
@@ -297,7 +295,6 @@ function CreateOrderModal({
             ))}
           </div>
 
-          {/* Confirm gate */}
           <div className="flex flex-col gap-1.5 pt-1 border-t border-border-light">
             <label className="text-[12px] font-semibold text-text-dark font-lato uppercase tracking-wide flex items-center gap-1.5">
               <AlertTriangle size={12} className="text-warning" />
@@ -315,7 +312,6 @@ function CreateOrderModal({
           {error && <p className="text-xs text-danger">{error}</p>}
         </div>
 
-        {/* Footer */}
         <div className="px-5 py-4 border-t border-border-light flex items-center justify-end gap-3">
           <button
             type="button"
@@ -707,14 +703,14 @@ export default function ChatDetailPage({
         </div>
       </div>
 
-      {/* Create order strip */}
+      {/* Create order strip — disabled: clients create their own orders */}
       {hasAdminPermission(user, Permissions.ORDERS_EDIT) && (
         <div className="shrink-0 px-5 pb-4 pt-2">
           <button
             type="button"
-            onClick={() => setCreateOrderOpen(true)}
-            disabled={!cartData?.items.length}
-            className="w-full h-10 rounded-lg bg-navy text-white text-sm font-semibold font-lato flex items-center justify-center gap-2 hover:bg-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled
+            title="As encomendas são agora criadas pelos próprios clientes"
+            className="w-full h-10 rounded-lg bg-navy text-white text-sm font-semibold font-lato flex items-center justify-center gap-2 opacity-40 cursor-not-allowed"
           >
             <PackagePlus size={16} />
             Criar Encomenda
