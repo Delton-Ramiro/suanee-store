@@ -218,7 +218,7 @@ export default async function clientOrdersRoutes(fastify: FastifyInstance) {
 
       const order = await prisma.order.findUnique({
         where: { id: req.params.id },
-        select: { id: true, userId: true, status: true },
+        select: { id: true, userId: true, status: true, subtotal: true },
       });
 
       if (!order || order.userId !== userId) {
@@ -239,9 +239,10 @@ export default async function clientOrdersRoutes(fastify: FastifyInstance) {
         where: { id: order.id },
         data: {
           deliveryType: body.deliveryType,
-          // pickup → clear deliveryAddress; home → clear pickPointId
           pickPointId: body.deliveryType === "pickup" ? (body.pickPointId ?? null) : null,
           deliveryAddress: body.deliveryType === "home" ? (body.deliveryAddress ?? null) : null,
+          // pickup orders have no delivery cost; recalculate total accordingly
+          ...(body.deliveryType === "pickup" ? { shippingCost: 0, total: order.subtotal } : {}),
         },
         include: {
           pickPoint: { select: { id: true, name: true, province: true, address: true } },
@@ -308,6 +309,7 @@ export default async function clientOrdersRoutes(fastify: FastifyInstance) {
         },
         orderBy: { createdAt: "desc" },
         include: {
+          pickPoint: { select: { id: true, name: true, province: true, address: true } },
           items: {
             select: {
               id: true,

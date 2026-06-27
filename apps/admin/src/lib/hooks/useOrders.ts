@@ -126,6 +126,9 @@ export type OrderDetail = {
       size: { name: string } | null;
     };
   }>;
+  deliveryType: string | null;
+  deliveryAddress: string | null;
+  pickPoint: { id: string; name: string; province: string; address: string } | null;
   processedBy: { id: string; name: string } | null;
 };
 

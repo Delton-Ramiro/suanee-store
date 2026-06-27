@@ -95,12 +95,13 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  refreshTokens  RefreshToken[]
-  cart           CartItem[]
-  favorites      Favorite[]
-  orders         Order[]
-  conversations  Conversation[]
-  visitorSession VisitorSession?
+  refreshTokens   RefreshToken[]
+  cart            CartItem[]
+  favorites       Favorite[]
+  orders          Order[]
+  conversations   Conversation[]
+  visitorSession  VisitorSession?
+  recentlyViewed  UserRecentlyViewed[]
 
   @@map("users")
 }
@@ -490,7 +491,8 @@ model Product {
   attributes                     ProductAttribute[]
   collectionFilterAttributes     ProductCollectionFilterAttribute[]
   favorites                      Favorite[]
-  orderItems        OrderItem[]
+  orderItems                     OrderItem[]
+  recentlyViewedBy               UserRecentlyViewed[]
   storyProducts     StorySlideProduct[]
   suppliers         ProductSupplier[]
   competitors       ProductCompetitor[]
@@ -905,4 +907,20 @@ model PickPoint {
   @@index([province])
   @@index([isActive])
   @@map("pick_points")
+}
+
+// ─── Recently Viewed ──────────────────────────────────────────────────────────
+
+model UserRecentlyViewed {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  viewedAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, viewedAt(sort: Desc)])
+  @@map("user_recently_viewed")
 }

@@ -47,6 +47,7 @@ import clientMediaRoutes from "./modules/client/media/routes.js";
 import clientAnalyticsRoutes from "./modules/client/analytics/routes.js";
 import clientUsersRoutes from "./modules/client/users/routes.js";
 import clientPickPointsRoutes from "./modules/client/pick-points/routes.js";
+import clientRecentlyViewedRoutes from "./modules/client/recently-viewed/routes.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -178,6 +179,7 @@ export async function buildApp() {
   await app.register(clientAnalyticsRoutes, { prefix: `${API}/analytics` });
   await app.register(clientUsersRoutes, { prefix: `${API}/users` });
   await app.register(clientPickPointsRoutes, { prefix: `${API}/pick-points` });
+  await app.register(clientRecentlyViewedRoutes, { prefix: `${API}/recently-viewed` });
 
   // Attach Socket.io
   initSocket(app.server);

@@ -10,6 +10,9 @@ import type {
 import { ProductCard } from "@/components/products/ProductCard";
 import { cartStore, cartItemKey, useCart } from "@/lib/stores/cartStore";
 import { favoritesStore, useFavorites } from "@/lib/stores/favoritesStore";
+import { recentlyViewedStore, type RecentlyViewedProduct } from "@/lib/stores/recentlyViewedStore";
+import { useAuth } from "@/lib/auth";
+import { authFetch } from "@/lib/api";
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /* Helpers                                                                      */
@@ -404,10 +407,103 @@ function ShownHereWith({ items }: { items: ShownWithProduct[] }) {
 /* Main component                                                               */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Recently Viewed section                                                       */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+function RecentlyViewedSection({ items }: { items: RecentlyViewedProduct[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-10 py-4">
+      <p className="text-[10px] tracking-[0.2em] uppercase text-text-muted font-medium mb-3">
+        Vistos recentemente
+      </p>
+      <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-1 px-1">
+        {items.map((item) => {
+          const displayPrice =
+            item.hasDiscount && item.discountPrice
+              ? item.discountPrice
+              : item.basePrice;
+          return (
+            <Link
+              key={item.id}
+              href={`/produtos/${item.slug}`}
+              className="group shrink-0 w-30 flex flex-col gap-1.5"
+            >
+              <div className="relative w-30 h-37.5 overflow-hidden bg-muted-bg">
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-border" />
+                )}
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <p className="text-[10px] font-bold text-brand uppercase tracking-wide leading-none truncate">
+                  {item.brandName}
+                </p>
+                <p className="text-[11px] text-text-muted leading-snug line-clamp-2">
+                  {item.name}
+                </p>
+                <p
+                  className={`text-[11px] font-semibold leading-none ${item.isIndicativePrice ? "text-accent" : "text-brand"}`}
+                >
+                  {displayPrice.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MZN
+                </p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Main component                                                               */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
 export function ProductDetailClient({ product }: { product: ProductDetail }) {
   /* ── Stores ──────────────────────────────────────────────────────────── */
   const { items: cartItems } = useCart();
   const { items: favoriteItems } = useFavorites();
+  const { user } = useAuth();
+
+  /* ── Recently viewed ────────────────────────────────────────────────── */
+  const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedProduct[]>([]);
+
+  useEffect(() => {
+    const thumb =
+      product.media.find((m) => m.isPrimary && m.mediaType === "image")?.url ??
+      product.media.find((m) => m.mediaType === "image")?.url ??
+      null;
+
+    const entry: RecentlyViewedProduct = {
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      brandName: product.brand.name,
+      imageUrl: thumb,
+      basePrice: Number(product.basePrice),
+      hasDiscount: product.hasDiscount,
+      discountPrice: product.discountPrice ? Number(product.discountPrice) : null,
+      isIndicativePrice: product.isIndicativePrice,
+    };
+
+    recentlyViewedStore.add(entry);
+    setRecentlyViewed(recentlyViewedStore.getExcluding(product.id));
+
+    if (user) {
+      authFetch("/recently-viewed", {
+        method: "POST",
+        body: JSON.stringify({ productId: product.id }),
+      }).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
 
   /* ── Unique colors from variants ─────────────────────────────────────── */
   const colors = useMemo(() => {
@@ -621,6 +717,8 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
           ) : (
             <div className="aspect-3/4 bg-muted-bg rounded-[10px]" />
           )}
+
+          <RecentlyViewedSection items={recentlyViewed} />
         </div>
 
         {/* ── Right: Product info panel ───────────────────────────────── */}

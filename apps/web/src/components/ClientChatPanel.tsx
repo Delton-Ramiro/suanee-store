@@ -23,6 +23,7 @@ import { useChat, chatStore } from "@/lib/stores/chatStore";
 import { useCart, cartStore, type CartItem } from "@/lib/stores/cartStore";
 import { useAuth } from "@/lib/auth";
 import { authFetch, apiFetch } from "@/lib/api";
+import { ordersStore } from "@/lib/stores/ordersStore";
 import { DrawerItemRow } from "./DrawerPanel";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -654,12 +655,13 @@ function OrderSuccessView({
           </p>
         </div>
         <div className="flex flex-col gap-2 w-full">
-          <a
-            href={`/conta/encomendas/${orderId}`}
+          <button
+            type="button"
+            onClick={() => { ordersStore.open(); onClose(); }}
             className="w-full h-11 rounded-xl bg-brand text-white text-sm font-semibold flex items-center justify-center hover:bg-primary transition-colors"
           >
             Ver encomenda
-          </a>
+          </button>
           <button
             type="button"
             onClick={onClose}
