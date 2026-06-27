@@ -12,6 +12,7 @@ import {
   Layers,
   Library,
   LogOut,
+  MapPin,
   Maximize2,
   MessageCircle,
   MonitorPlay,
@@ -96,6 +97,12 @@ const STRUCTURE_ITEMS = [
     label: "Anúncios",
     icon: MonitorPlay,
     permission: Permissions.POPUP_MODALS_EDIT,
+  },
+  {
+    href: "/pontos-de-recolha",
+    label: "Pontos de recolha",
+    icon: MapPin,
+    permission: Permissions.PICK_POINTS_EDIT,
   },
 ];
 

@@ -143,6 +143,10 @@ export function canManageMostSearched(user: AdminAccessUser): boolean {
   return hasAdminPermission(user, Permissions.MOST_SEARCHED_EDIT);
 }
 
+export function canManagePickPoints(user: AdminAccessUser): boolean {
+  return hasAdminPermission(user, Permissions.PICK_POINTS_EDIT);
+}
+
 export function canCreateProducts(user: AdminAccessUser): boolean {
   return hasAdminPermission(user, Permissions.PRODUCTS_CREATE);
 }

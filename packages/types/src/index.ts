@@ -613,6 +613,7 @@ export const Permissions = {
   ANALYTICS_VIEW: 1 << 17, // 131072
   AUTHORITY_MANAGE: 1 << 18, // 262144
   POPUP_MODALS_EDIT: 1 << 19, // 524288
+  PICK_POINTS_EDIT: 1 << 20, // 1048576
 } as const;
 
 export const ALL_PERMISSIONS = Object.values(Permissions).reduce(
@@ -629,7 +630,8 @@ export const MANAGE_STRUCTURE =
   Permissions.MOST_SEARCHED_EDIT |
   Permissions.STORIES_EDIT |
   Permissions.CURRENCY_EDIT |
-  Permissions.POPUP_MODALS_EDIT;
+  Permissions.POPUP_MODALS_EDIT |
+  Permissions.PICK_POINTS_EDIT;
 
 export const MANAGE_PRODUCTS =
   Permissions.PRODUCTS_VIEW |
@@ -788,7 +790,7 @@ const ROLE_DEFINITIONS: Record<RoleKey, RoleDefinition> = {
   },
   content_manager: {
     label: "Content Manager",
-    permissions: Permissions.STORIES_EDIT | Permissions.PRODUCTS_VIEW,
+    permissions: Permissions.STORIES_EDIT | Permissions.PRODUCTS_VIEW | Permissions.PICK_POINTS_EDIT,
     rules: {
       canManageAuthority: false,
       canCreateOrder: false,
@@ -864,3 +866,31 @@ export type SendMessageInput = z.infer<typeof SendMessageSchema>;
 export type PresignRequestInput = z.infer<typeof PresignRequestSchema>;
 export type PaginationQueryInput = z.infer<typeof PaginationQuery>;
 export type ReorderInput = z.infer<typeof ReorderSchema>;
+
+
+// ─── Pick Points ──────────────────────────────────────────────────────────────
+
+export const MOZAMBIQUE_PROVINCES = [
+  "Cabo Delgado",
+  "Gaza",
+  "Inhambane",
+  "Manica",
+  "Maputo Cidade",
+  "Maputo Província",
+  "Nampula",
+  "Niassa",
+  "Sofala",
+  "Tete",
+  "Zambézia",
+] as const;
+
+export type MozambiqueProvince = (typeof MOZAMBIQUE_PROVINCES)[number];
+
+export const CreatePickPointSchema = z.object({
+  province: z.enum(MOZAMBIQUE_PROVINCES),
+  name: z.string().min(1).max(200),
+  address: z.string().min(1),
+  isActive: z.boolean().default(true),
+});
+
+export const UpdatePickPointSchema = CreatePickPointSchema.partial();

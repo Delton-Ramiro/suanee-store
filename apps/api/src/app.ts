@@ -32,6 +32,7 @@ import adminMediaRoutes from "./modules/admin/media/routes.js";
 import adminSearchRoutes from "./modules/admin/search/routes.js";
 import adminPopupModalsRoutes from "./modules/admin/popup-modals/routes.js";
 import adminTopBarsRoutes from "./modules/admin/top-bars/routes.js";
+import adminPickPointsRoutes from "./modules/admin/pick-points/routes.js";
 
 // Client routes
 import clientAuthRoutes from "./modules/client/auth/routes.js";
@@ -159,6 +160,9 @@ export async function buildApp() {
     prefix: `${API}/admin/popup-modals`,
   });
   await app.register(adminTopBarsRoutes, { prefix: `${API}/admin/top-bars` });
+  await app.register(adminPickPointsRoutes, {
+    prefix: `${API}/admin/pick-points`,
+  });
 
   // ── Client routes ─────────────────────────────────────────────────────────
   await app.register(clientAuthRoutes, { prefix: `${API}/auth` });

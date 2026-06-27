@@ -883,3 +883,19 @@ model PopupModal {
   @@index([isActive])
   @@map("popup_modals")
 }
+
+// ─── Pick Points ──────────────────────────────────────────────────────────────
+
+model PickPoint {
+  id        String   @id @default(uuid())
+  province  String
+  name      String
+  address   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([province])
+  @@index([isActive])
+  @@map("pick_points")
+}
