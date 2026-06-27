@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import TextInput from "@/components/ui/TextInput";
 import Toggle from "@/components/ui/Toggle";
 import { MOZAMBIQUE_PROVINCES, type MozambiqueProvince } from "@ecommerce/types";
@@ -37,6 +38,7 @@ export default function PickPointFormModal({
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -54,6 +56,7 @@ export default function PickPointFormModal({
   const canSubmit = province && name.trim().length > 0 && address.trim().length > 0;
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -108,12 +111,12 @@ export default function PickPointFormModal({
           {isEdit && onDelete ? (
             <button
               type="button"
-              onClick={onDelete}
+              onClick={() => setConfirmOpen(true)}
               disabled={isDeleting}
               className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold font-figtree text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Trash2 size={15} />
-              {isDeleting ? "A eliminar…" : "Eliminar"}
+              Eliminar
             </button>
           ) : (
             <span />
@@ -137,5 +140,16 @@ export default function PickPointFormModal({
         </div>
       </form>
     </Modal>
+
+    <ConfirmModal
+      open={confirmOpen}
+      onCancel={() => setConfirmOpen(false)}
+      onConfirm={async () => {
+        setConfirmOpen(false);
+        await onDelete?.();
+      }}
+      loading={isDeleting}
+    />
+    </>
   );
 }

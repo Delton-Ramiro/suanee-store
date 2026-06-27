@@ -53,6 +53,7 @@ import {
   forcesHiddenProductSave,
 } from "@/lib/admin-access";
 import AccessDeniedState from "@/components/AccessDeniedState";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 /* ── Local helpers ─────────────────────────────────────────────────────────── */
 
@@ -230,6 +231,7 @@ function SortableShownWithItem({
   onRemove: () => void;
   canEdit: boolean;
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const {
     attributes,
     listeners,
@@ -245,52 +247,66 @@ function SortableShownWithItem({
   };
   const thumb = item.media?.[0]?.url ?? null;
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-3 p-3 rounded-xl border border-border-light bg-card hover:bg-surface-hover transition-colors"
-    >
-      {canEdit && (
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          className="shrink-0 text-text-muted cursor-grab active:cursor-grabbing touch-none"
-          aria-label="Reordenar"
-        >
-          <GripVertical size={16} />
-        </button>
-      )}
-      <div className="w-12 h-12 rounded-lg overflow-hidden bg-surface-hover shrink-0 border border-border-light">
-        {thumb ? (
-          <img
-            src={thumb}
-            alt={item.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-border" />
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="flex items-center gap-3 p-3 rounded-xl border border-border-light bg-card hover:bg-surface-hover transition-colors"
+      >
+        {canEdit && (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="shrink-0 text-text-muted cursor-grab active:cursor-grabbing touch-none"
+            aria-label="Reordenar"
+          >
+            <GripVertical size={16} />
+          </button>
+        )}
+        <div className="w-12 h-12 rounded-lg overflow-hidden bg-surface-hover shrink-0 border border-border-light">
+          {thumb ? (
+            <img
+              src={thumb}
+              alt={item.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-border" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-text-dark font-figtree truncate">
+            {item.name}
+          </p>
+          <p className="text-xs text-text-muted font-figtree">
+            {item.brand?.name}
+          </p>
+        </div>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            className="shrink-0 w-7 h-7 rounded-full bg-danger/10 text-danger flex items-center justify-center hover:bg-danger hover:text-white transition-colors"
+            aria-label="Remover"
+          >
+            <X size={13} />
+          </button>
         )}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-text-dark font-figtree truncate">
-          {item.name}
-        </p>
-        <p className="text-xs text-text-muted font-figtree">
-          {item.brand?.name}
-        </p>
-      </div>
-      {canEdit && (
-        <button
-          type="button"
-          onClick={onRemove}
-          className="shrink-0 w-7 h-7 rounded-full bg-danger/10 text-danger flex items-center justify-center hover:bg-danger hover:text-white transition-colors"
-          aria-label="Remover"
-        >
-          <X size={13} />
-        </button>
-      )}
-    </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        title="Remover produto"
+        message={`Remover "${item.name}" da lista?`}
+        confirmLabel="Remover"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          setConfirmOpen(false);
+          onRemove();
+        }}
+      />
+    </>
   );
 }
 
