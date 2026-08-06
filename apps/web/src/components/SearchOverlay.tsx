@@ -10,6 +10,10 @@ import {
   ProductCard,
   type ProductCardItem,
 } from "@/components/products/ProductCard";
+import {
+  recentlyViewedStore,
+  type RecentlyViewedProduct,
+} from "@/lib/stores/recentlyViewedStore";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -77,6 +81,23 @@ function formatPrice(value: number): string {
 
 // ── Component ──────────────────────────────────────────────────────
 
+function toRecentCardItem(p: RecentlyViewedProduct): ProductCardItem {
+  return {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    basePrice: p.basePrice,
+    isIndicativePrice: p.isIndicativePrice,
+    hasDiscount: p.hasDiscount,
+    discountPrice: p.discountPrice,
+    brand: { id: "", name: p.brandName, slug: "" },
+    media: p.imageUrl
+      ? [{ url: p.imageUrl, mediaType: "image", isPrimary: true }]
+      : [],
+    variants: [],
+  };
+}
+
 function categoryUrl(cat: MostSearchedCategory["category"]): string {
   return cat.level <= 1
     ? `/categorias/${cat.slug}`
@@ -92,6 +113,9 @@ export function SearchOverlay() {
   const [hits, setHits] = useState<SearchDocument[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [mostSearched, setMostSearched] = useState<MostSearchedCategory[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedProduct[]>(
+    [],
+  );
 
   // Fetch most-searched once on mount
   useEffect(() => {
@@ -99,6 +123,11 @@ export function SearchOverlay() {
       .then(setMostSearched)
       .catch(() => {});
   }, []);
+
+  // Load recently viewed when overlay opens
+  useEffect(() => {
+    if (isOpen) setRecentlyViewed(recentlyViewedStore.getAll());
+  }, [isOpen]);
 
   // Auto-focus and reset on open/close
   useEffect(() => {
@@ -161,7 +190,7 @@ export function SearchOverlay() {
       >
         <div className="container-web py-8">
           {/* Close button */}
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end mt-6">
             <button
               type="button"
               onClick={searchStore.close}
@@ -284,11 +313,11 @@ export function SearchOverlay() {
             </div>
           )}
 
-          {/* Idle state — no query yet, show most-searched categories */}
+          {/* Idle state — no query yet */}
           {!hasQuery && !loading && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-8">
               {mostSearched.length > 0 && (
-                <>
+                <div className="flex flex-col gap-3">
                   <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">
                     Mais procurados
                   </p>
@@ -304,7 +333,58 @@ export function SearchOverlay() {
                       </Link>
                     ))}
                   </div>
-                </>
+                </div>
+              )}
+
+              {recentlyViewed.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+                    Vistos recentemente
+                  </p>
+
+                  {/* Mobile: horizontal scroll row */}
+                  <div className="flex gap-3 overflow-x-auto no-scrollbar sm:hidden pb-1">
+                    {recentlyViewed.map((p) => (
+                      <Link
+                        key={p.id}
+                        href={`/produtos/${p.slug}`}
+                        onClick={searchStore.close}
+                        className="flex-none w-24"
+                      >
+                        <div className="w-24 h-32 rounded-[5px] overflow-hidden bg-muted-bg mb-1.5">
+                          {p.imageUrl && (
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                        <p className="text-[11px] font-bold text-brand truncate">
+                          {p.brandName}
+                        </p>
+                        <p className="text-[10px] text-text-muted truncate">
+                          {p.name}
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+
+                  {/* Desktop: compact card grid */}
+                  <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-x-1.25 gap-y-6">
+                    {recentlyViewed.map((p) => (
+                      <div
+                        key={p.id}
+                        onClick={(e) => {
+                          if (!(e.target as HTMLElement).closest("button"))
+                            searchStore.close();
+                        }}
+                      >
+                        <ProductCard product={toRecentCardItem(p)} compact />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}

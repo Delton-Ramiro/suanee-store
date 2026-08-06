@@ -2,7 +2,14 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
-import { ChevronDown, Heart, Ruler, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Ruler,
+  X,
+} from "lucide-react";
 import type {
   ProductDetail,
   ProductMedia,
@@ -217,6 +224,160 @@ function SizeDropdown({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Image gallery (sticky left panel)                                            */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+function GalleryMedia({
+  item,
+  alt,
+  eager,
+}: {
+  item: ProductMedia;
+  alt: string;
+  eager?: boolean;
+}) {
+  if (item.mediaType === "video") {
+    return (
+      <video
+        src={item.url}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="w-full h-full object-cover"
+      />
+    );
+  }
+  return (
+    <img
+      src={item.url}
+      alt={alt}
+      className="w-full h-full object-cover"
+      loading={eager ? "eager" : "lazy"}
+    />
+  );
+}
+
+function ImageGallery({
+  media,
+  productName,
+  discountPercent,
+  isIndicativePrice,
+}: {
+  media: ProductMedia[];
+  productName: string;
+  discountPercent: number | null;
+  isIndicativePrice: boolean;
+}) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(media.length / 2));
+
+  function goPage(dir: 1 | -1) {
+    setPage((p) => Math.max(0, Math.min(p + dir, totalPages - 1)));
+  }
+
+  return (
+    <div className="relative h-full overflow-hidden">
+      {/* Page frames — crossfade pairs */}
+      {Array.from({ length: totalPages }).map((_, pageIdx) => {
+        const left = media[pageIdx * 2];
+        const right = media[pageIdx * 2 + 1];
+        return (
+          <div
+            key={pageIdx}
+            className={`absolute inset-0 flex gap-1.25 ${!right ? "justify-center" : ""}`}
+            style={{
+              transform: `translateX(${(pageIdx - page) * 100}%)`,
+              transition:
+                "transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+              pointerEvents: pageIdx === page ? "auto" : "none",
+            }}
+          >
+            {left && (
+              <div
+                className={`${right ? "flex-1" : "w-1/2"} overflow-hidden bg-muted-bg`}
+              >
+                <GalleryMedia
+                  item={left}
+                  alt={`${productName} ${pageIdx * 2 + 1}`}
+                  eager={pageIdx === 0}
+                />
+              </div>
+            )}
+            {right && (
+              <div className="flex-1 overflow-hidden bg-muted-bg">
+                <GalleryMedia
+                  item={right}
+                  alt={`${productName} ${pageIdx * 2 + 2}`}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Overlay tags — aligned to current image's left edge */}
+      {(discountPercent !== null || isIndicativePrice) && (
+        <div
+          className={`absolute top-0 z-10 flex flex-col gap-1 transition-[left] duration-400 ${
+            media[page * 2 + 1] ? "left-0" : "left-1/4"
+          }`}
+        >
+          {discountPercent !== null && (
+            <div className="px-2.5 py-1.5 bg-white/80 backdrop-blur-sm">
+              <span className="block text-xs tracking-[0.2em] uppercase font-bold text-brand leading-none">
+                -{discountPercent}%
+              </span>
+            </div>
+          )}
+          {isIndicativePrice && (
+            <div className="px-2.5 py-1.5 bg-white/80 backdrop-blur-sm">
+              <span className="block text-xs tracking-[0.2em] uppercase font-semibold text-accent leading-none">
+                indicativo
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Navigation — bottom-left, overlaid */}
+      {totalPages > 1 && (
+        <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => goPage(-1)}
+            disabled={page === 0}
+            aria-label="Imagens anteriores"
+            className="w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center transition-opacity duration-200 disabled:opacity-30 hover:bg-white/95"
+          >
+            <ChevronLeft size={15} className="text-brand" />
+          </button>
+          <button
+            type="button"
+            onClick={() => goPage(1)}
+            disabled={page === totalPages - 1}
+            aria-label="Próximas imagens"
+            className="w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center transition-opacity duration-200 disabled:opacity-30 hover:bg-white/95"
+          >
+            <ChevronRight size={15} className="text-brand" />
+          </button>
+          <div className="flex items-center gap-1 ml-1">
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <div
+                key={i}
+                className={`h-0.5 rounded-full bg-brand transition-all duration-300 ${
+                  i === page ? "w-5 opacity-100" : "w-2.5 opacity-25"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -693,51 +854,18 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
       {/* Main 2-col layout */}
       <div className="flex flex-col md:flex-row gap-6 lg:gap-10 items-start">
         {/* ── Left: Image gallery ─────────────────────────────────────── */}
-        <div className="w-full md:flex-1 relative">
-          {/* Tags — top-left of image area, no margin */}
-          {(discountPercent !== null || isIndicativePrice) && (
-            <div className="absolute top-0 left-0 z-10 flex flex-col gap-1">
-              {discountPercent !== null && (
-                <div className="px-2.5 py-1.5 bg-white/80 backdrop-blur-sm">
-                  <span className="block text-sm tracking-[0.2em] uppercase font-bold text-brand leading-none">
-                    -{discountPercent}%
-                  </span>
-                </div>
-              )}
-              {isIndicativePrice && (
-                <div className="px-2.5 py-1.5 bg-white/80 backdrop-blur-sm">
-                  <span className="block text-sm tracking-[0.2em] uppercase font-semibold text-accent leading-none">
-                    indicativo
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 2-column masonry grid */}
-          {displayMedia.length > 0 ? (
-            <div
-              key={selectedColorId ?? "base"}
-              className="columns-2 gap-[5px] animate-product-media"
-            >
-              {displayMedia.map((item) => (
-                <div
-                  key={item.id}
-                  className="mb-[5px] break-inside-avoid overflow-hidden"
-                >
-                  <MediaItem item={item} name={product.name} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="aspect-3/4 bg-muted-bg rounded-[10px]" />
-          )}
-
-          <RecentlyViewedSection items={recentlyViewed} />
+        <div className="w-full md:flex-1 relative overflow-hidden h-[65svh] md:sticky md:top-[calc(var(--spacing-nav)+24px)] md:h-[calc(100vh-var(--spacing-nav)-140px)]">
+          <ImageGallery
+            key={selectedColorId ?? "base"}
+            media={displayMedia}
+            productName={product.name}
+            discountPercent={discountPercent}
+            isIndicativePrice={isIndicativePrice}
+          />
         </div>
 
         {/* ── Right: Product info panel ───────────────────────────────── */}
-        <div className="w-full md:w-87.5 lg:w-100 shrink-0 md:sticky md:top-[calc(var(--spacing-nav)+24px)]">
+        <div className="w-full md:w-87.5 lg:w-100 shrink-0">
           {/* Brand + Heart row */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <p className="text-md font-bold text-brand">{product.brand.name}</p>
@@ -944,6 +1072,8 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
         </div>
       </div>
 
+      <RecentlyViewedSection items={recentlyViewed} />
+
       {/* ── Também pode gostar ──────────────────────────────────────────── */}
       {product.relatedProducts && product.relatedProducts.length > 0 && (
         <section className="mt-20">
@@ -951,7 +1081,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
             Também pode gostar
           </h2>
           <div className="border-[0.5px] border-accent mb-5" />
-          <div className="flex gap-[5px] overflow-x-auto pb-3 no-scrollbar">
+          <div className="flex gap-1.25 overflow-x-auto pb-3 no-scrollbar">
             {product.relatedProducts.map((rp) => (
               <div
                 key={rp.id}
