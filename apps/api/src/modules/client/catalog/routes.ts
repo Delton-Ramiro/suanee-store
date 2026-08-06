@@ -869,6 +869,7 @@ export default async function clientCatalogRoutes(fastify: FastifyInstance) {
               hasDiscount: true,
               discountPrice: true,
               isIndicativePrice: true,
+              modelNote: true,
               color: {
                 select: { id: true, name: true, hexCode: true, slug: true },
               },

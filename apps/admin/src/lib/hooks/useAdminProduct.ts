@@ -34,6 +34,7 @@ export type ProductVariantItem = {
   hasDiscount: boolean;
   discountPrice: number | null;
   isIndicativePrice: boolean;
+  modelNote: string | null;
   position: number;
   color?: { id: string; name: string; hexCode: string };
   size?: { id: string; name: string; label: string };
@@ -116,6 +117,7 @@ export type CreateProductPayload = {
     hasDiscount?: boolean;
     discountPrice?: number;
     isIndicativePrice?: boolean;
+    modelNote?: string | null;
     position?: number;
   }[];
   media?: {

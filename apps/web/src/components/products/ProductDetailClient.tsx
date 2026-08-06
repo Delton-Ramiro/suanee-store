@@ -268,11 +268,13 @@ function ImageGallery({
   productName,
   discountPercent,
   isIndicativePrice,
+  modelNote,
 }: {
   media: ProductMedia[];
   productName: string;
   discountPercent: number | null;
   isIndicativePrice: boolean;
+  modelNote: string | null;
 }) {
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(media.length / 2));
@@ -376,6 +378,34 @@ function ImageGallery({
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Model note — frosted pill, tracks image right edge on every page */}
+      {modelNote && (
+        <div
+          className="absolute bottom-3 z-10 max-w-[45%]"
+          style={{
+            // When current page has two images the pill sits at the far right (on the right image).
+            // When there's only one centered image (w-1/2, justify-center) the image's right edge
+            // is at 75% from the left = 25% from the right, so we shift the pill inward to match.
+            right: media[page * 2 + 1] ? "0.75rem" : "calc(25% + 0.75rem)",
+            transition:
+              "right 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+          }}
+        >
+          <span
+            className="inline-block px-2.5 py-1 rounded-full text-[10px] font-medium leading-tight tracking-wide"
+            style={{
+              background: "rgba(0,0,0,0.4)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              color: "rgba(255,255,255,0.93)",
+              boxShadow: "0 1px 8px rgba(0,0,0,0.22)",
+            }}
+          >
+            {modelNote}
+          </span>
         </div>
       )}
     </div>
@@ -775,6 +805,11 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
       ? Math.round((1 - discountPrice / basePrice) * 100)
       : null;
 
+  const modelNote = selectedColorId
+    ? (product.variants.find((v) => v.color?.id === selectedColorId)
+        ?.modelNote ?? null)
+    : null;
+
   /* ── Cart / favorites helpers ────────────────────────────────────────── */
   const isFavorited = favoriteItems.some((i) => i.productId === product.id);
 
@@ -861,6 +896,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
             productName={product.name}
             discountPercent={discountPercent}
             isIndicativePrice={isIndicativePrice}
+            modelNote={modelNote}
           />
         </div>
 

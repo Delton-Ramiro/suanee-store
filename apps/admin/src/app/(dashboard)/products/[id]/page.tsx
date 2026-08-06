@@ -527,6 +527,9 @@ export default function ProductEditPage({
   const [selectedColorIds, setSelectedColorIds] = useState<string[]>([]);
   /** The color whose panel is currently visible */
   const [activeColorId, setActiveColorId] = useState<string | null>(null);
+  /** Short model note per color — shared across all sizes of that color */
+  const [colorNotes, setColorNotes] = useState<Record<string, string>>({});
+  const colorNotesLoadedRef = useRef(false);
   const [colorMedia, setColorMedia] = useState<Record<string, MediaDraft[]>>(
     {},
   );
@@ -820,6 +823,18 @@ export default function ProductEditPage({
     setVariantMap(newVariantMap);
     setSelectedSizesByColor(newSizesByColor);
   }, [product, l0Cats, l1Cats, l2Cats]);
+
+  // Load colorNotes once on first product load. Skip subsequent refetches so
+  // window-focus refetches don't wipe notes the user typed before saving.
+  useEffect(() => {
+    if (!product || colorNotesLoadedRef.current) return;
+    colorNotesLoadedRef.current = true;
+    const notes: Record<string, string> = {};
+    for (const v of product.variants) {
+      if (v.modelNote && !notes[v.colorId]) notes[v.colorId] = v.modelNote;
+    }
+    setColorNotes(notes);
+  }, [product]);
 
   /* Ref mirror of colorInfoMap — lets the missing-color effect read current
      map state without adding colorInfoMap as a dependency (avoids re-loops). */
@@ -1531,6 +1546,7 @@ export default function ProductEditPage({
                 ? parseFloat(cfg.discountPrice)
                 : undefined,
             isIndicativePrice: cfg.isIndicativePrice,
+            modelNote: colorNotes[cid]?.trim() || null,
             position: parseInt(cfg.position) || idx,
           };
         }),
@@ -2376,6 +2392,21 @@ export default function ProductEditPage({
                         <span className="text-md font-bold text-navy font-lato">
                           {color.name}
                         </span>
+                      </div>
+
+                      {/* Model note */}
+                      <div>
+                        <FieldLabel>Nota do modelo (opcional)</FieldLabel>
+                        <input
+                          type="text"
+                          value={colorNotes[cid] ?? ""}
+                          onChange={(e) =>
+                            setColorNotes((prev) => ({ ...prev, [cid]: e.target.value }))
+                          }
+                          placeholder="ex: O modelo tem 1,80 m e veste tamanho M"
+                          maxLength={120}
+                          className="w-full h-10 px-3 rounded-xl border border-border bg-card text-text-dark text-sm font-figtree placeholder:text-text-label focus:outline-none focus:border-accent transition-colors"
+                        />
                       </div>
 
                       {/* Media zone */}

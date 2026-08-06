@@ -249,6 +249,8 @@ export const ProductVariantInputSchema = z.object({
   hasDiscount: z.boolean().default(false),
   discountPrice: z.number().positive().optional(),
   isIndicativePrice: z.boolean().default(false),
+  modelNote: z.string().max(120).nullable().optional(),
+  position: z.number().int().min(0).optional(),
 });
 
 export const ProductAttributeInputSchema = z.object({
