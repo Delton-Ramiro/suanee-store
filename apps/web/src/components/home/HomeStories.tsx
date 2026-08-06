@@ -57,7 +57,7 @@ export function HomeStories({ stories }: { stories: Story[] }) {
           Figma: gap-[41px], horizontally centered on desktop.
           On mobile: starts flush left with some padding so first item is fully visible.
         */}
-        <div className="flex items-center gap-[41px] px-4 md:justify-center">
+        <div className="flex items-center gap-5 sm:gap-10.25 px-4 md:justify-center">
           {stories.map((story, idx) => (
             <StoryThumb
               key={story.id}

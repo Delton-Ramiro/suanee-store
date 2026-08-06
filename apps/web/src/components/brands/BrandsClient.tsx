@@ -45,7 +45,7 @@ export function BrandsClient({ brands }: { brands: BrandItem[] }) {
       {/* Header */}
       <div className="flex flex-col gap-2.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h1 className="font-medium text-[38px] text-black tracking-[0.76px] leading-none">
+          <h1 className="font-medium text-[28px] sm:text-h2 text-black tracking-[0.76px] leading-none">
             Marcas
           </h1>
           <div className="relative flex items-center">
@@ -110,7 +110,7 @@ export function BrandsClient({ brands }: { brands: BrandItem[] }) {
                 href={`/marcas/${brand.slug}`}
                 className="flex flex-col gap-[21px] items-center group"
               >
-                <div className="h-[210px] w-full rounded-[5px] overflow-hidden bg-muted-bg relative">
+                <div className="h-44 sm:h-52.5 w-full rounded-[5px] overflow-hidden bg-muted-bg relative">
                   {img ? (
                     <img
                       src={img}

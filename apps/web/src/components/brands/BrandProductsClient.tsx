@@ -269,11 +269,11 @@ export function BrandProductsClient({ brand }: { brand: BrandInfo }) {
 
   return (
     <div>
-      <div className="flex items-end justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
         <h1 className="font-inter font-medium text-2xl md:text-h2 text-black tracking-[0.02em] leading-none uppercase">
           {brand.name}
         </h1>
-        <form onSubmit={handleSearchSubmit} className="w-56">
+        <form onSubmit={handleSearchSubmit} className="w-full sm:w-56">
           <div className="flex items-center gap-2">
             <Search size={13} className="text-brand/35 shrink-0" />
             <input

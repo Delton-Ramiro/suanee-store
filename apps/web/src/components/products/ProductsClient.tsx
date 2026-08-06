@@ -46,7 +46,9 @@ function readFiltersFromUrl(params: URLSearchParams): ActiveFilters & {
 
   return {
     page: Math.max(1, Number(params.get("page") ?? 1)),
-    sort: ((SORT_VALUES as readonly string[]).includes(sort ?? "") ? sort : "newest") as Sort,
+    sort: ((SORT_VALUES as readonly string[]).includes(sort ?? "")
+      ? sort
+      : "newest") as Sort,
     brand: params.get("brand")?.split(",").filter(Boolean) ?? [],
     color: params.get("color")?.split(",").filter(Boolean) ?? [],
     size: params.get("size")?.split(",").filter(Boolean) ?? [],
@@ -186,9 +188,6 @@ export function ProductsClient({ category, subCategories }: Props) {
         <h1 className="font-inter font-medium text-2xl md:text-[38px] text-black tracking-[0.02em] leading-none uppercase">
           {category.name}
         </h1>
-        <p className="text-sm text-text-muted mt-1 hidden md:block">
-          Descubra os melhores produtos desta categoria com os filtros abaixo.
-        </p>
       </div>
 
       {/* Sort bar */}

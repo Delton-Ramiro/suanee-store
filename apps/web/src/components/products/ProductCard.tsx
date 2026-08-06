@@ -203,7 +203,7 @@ export function ProductCard({
 
         {compact ? (
           /* Compact (search) — price stacked, swatches below */
-          <div className="flex items-center justify-between gap-2 pr-6">
+          <div className="flex items-center justify-between gap-2 pr-2 sm:pr-6">
             <span
               className={`text-h6 font-bold leading-none ${
                 product.isIndicativePrice ? "text-accent" : "text-brand"
@@ -232,7 +232,7 @@ export function ProductCard({
           </div>
         ) : (
           /* Default — price + swatches inline */
-          <div className="flex items-center justify-between gap-2 pr-6.25">
+          <div className="flex items-center justify-between gap-2 pr-2 sm:pr-6.25">
             {product.hasDiscount && product.discountPrice != null ? (
               <>
                 <span

@@ -798,7 +798,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
                       className={`flex flex-col items-center gap-1.5 shrink-0 ${isOos ? "cursor-not-allowed" : ""}`}
                     >
                       <span
-                        className={`relative block w-[72px] h-[72px] rounded overflow-hidden border-2 transition-all ${
+                        className={`relative block w-14 h-14 sm:w-18 sm:h-18 rounded overflow-hidden border-2 transition-all ${
                           isOos ? "opacity-40" : ""
                         } ${
                           isSelected

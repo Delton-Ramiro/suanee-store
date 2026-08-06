@@ -328,7 +328,7 @@ function PesquisaInner() {
     <div>
       {/* Search input — continuation from the overlay */}
       <div className="flex justify-end mb-8 mt-8">
-        <form onSubmit={handleSearchSubmit} className="w-64">
+        <form onSubmit={handleSearchSubmit} className="w-full sm:w-64">
           <div className="flex items-center gap-2">
             <Search size={13} className="text-brand/35 shrink-0" />
             <input

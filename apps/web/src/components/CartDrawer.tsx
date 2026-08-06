@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Minus, Plus, ChevronDown } from "lucide-react";
 import { useCart, cartStore, cartItemKey, type CartItem } from "@/lib/stores/cartStore";
 import { chatStore } from "@/lib/stores/chatStore";
@@ -124,11 +124,71 @@ function SizeSelector({ item }: { item: CartItem }) {
   );
 }
 
+// ── Countdown bar ──────────────────────────────────────────────────────────
+
+const DELETE_DELAY = 10_000;
+
+function CountdownBar() {
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    let r1: number, r2: number;
+    r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => setActive(true));
+    });
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+    };
+  }, []);
+
+  return (
+    <div className="h-px bg-border overflow-hidden mt-2">
+      <div
+        className="h-full bg-brand/50"
+        style={{
+          width: active ? "0%" : "100%",
+          transitionProperty: "width",
+          transitionDuration: active ? `${DELETE_DELAY}ms` : "0ms",
+          transitionTimingFunction: "linear",
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Cart drawer ────────────────────────────────────────────────────────────
 
 export function CartDrawer() {
   const { items, isOpen } = useCart();
   const { user } = useAuth();
+  const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
+  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  function startDelete(key: string) {
+    setPendingKeys((prev) => new Set([...prev, key]));
+    const id = setTimeout(() => {
+      cartStore.remove(key);
+      timeoutsRef.current.delete(key);
+      setPendingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }, DELETE_DELAY);
+    timeoutsRef.current.set(key, id);
+  }
+
+  function undoDelete(key: string) {
+    const id = timeoutsRef.current.get(key);
+    if (id !== undefined) clearTimeout(id);
+    timeoutsRef.current.delete(key);
+    setPendingKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
@@ -171,53 +231,72 @@ export function CartDrawer() {
           <p className="text-sm text-text-muted text-center">O teu carrinho está vazio.</p>
         </div>
       ) : (
-        items.map((item) => (
-          <DrawerItemRow
-            key={item.key}
-            imageUrl={item.imageUrl}
-            name={item.name}
-            brandName={item.brandName}
-            price={fmtMoney(item.price * item.quantity)}
-            indicativePrice={item.isIndicativePrice}
-            meta={[item.colorName].filter(Boolean) as string[]}
-            actions={
-              <div className="flex flex-col gap-2">
-                {item.sizeId && <SizeSelector item={item} />}
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => cartStore.updateQty(item.key, -1)}
-                    disabled={item.quantity <= 1}
-                    aria-label="Diminuir"
-                    className="text-brand/40 hover:text-brand disabled:opacity-20 transition-colors"
-                  >
-                    <Minus size={11} strokeWidth={2} />
-                  </button>
-                  <span className="text-xs font-semibold text-brand min-w-3.5 text-center">
-                    {item.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => cartStore.updateQty(item.key, 1)}
-                    disabled={item.quantity >= item.stockQuantity}
-                    aria-label="Aumentar"
-                    className="text-brand/40 hover:text-brand disabled:opacity-20 transition-colors"
-                  >
-                    <Plus size={11} strokeWidth={2} />
-                  </button>
-                  <span className="w-px h-3 bg-border-light mx-1" />
-                  <button
-                    type="button"
-                    onClick={() => cartStore.remove(item.key)}
-                    className="text-[11px] text-text-muted hover:text-brand transition-colors underline underline-offset-2"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            }
-          />
-        ))
+        items.map((item) => {
+          const isPending = pendingKeys.has(item.key);
+          return (
+            <DrawerItemRow
+              key={item.key}
+              imageUrl={item.imageUrl}
+              name={item.name}
+              brandName={item.brandName}
+              price={fmtMoney(item.price * item.quantity)}
+              indicativePrice={item.isIndicativePrice}
+              meta={[item.colorName].filter(Boolean) as string[]}
+              actions={
+                isPending ? (
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[11px] text-text-muted">A eliminar</span>
+                      <button
+                        type="button"
+                        onClick={() => undoDelete(item.key)}
+                        className="text-[11px] text-brand underline underline-offset-2 hover:opacity-60 transition-opacity"
+                      >
+                        Anular
+                      </button>
+                    </div>
+                    <CountdownBar />
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {item.sizeId && <SizeSelector item={item} />}
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => cartStore.updateQty(item.key, -1)}
+                        disabled={item.quantity <= 1}
+                        aria-label="Diminuir"
+                        className="text-brand/40 hover:text-brand disabled:opacity-20 transition-colors"
+                      >
+                        <Minus size={11} strokeWidth={2} />
+                      </button>
+                      <span className="text-xs font-semibold text-brand min-w-3.5 text-center">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => cartStore.updateQty(item.key, 1)}
+                        disabled={item.quantity >= item.stockQuantity}
+                        aria-label="Aumentar"
+                        className="text-brand/40 hover:text-brand disabled:opacity-20 transition-colors"
+                      >
+                        <Plus size={11} strokeWidth={2} />
+                      </button>
+                      <span className="w-px h-3 bg-border-light mx-1" />
+                      <button
+                        type="button"
+                        onClick={() => startDelete(item.key)}
+                        className="text-[11px] text-text-muted hover:text-brand transition-colors underline underline-offset-2"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+            />
+          );
+        })
       )}
     </DrawerPanel>
   );
