@@ -10,7 +10,10 @@ import type {
 import { ProductCard } from "@/components/products/ProductCard";
 import { cartStore, cartItemKey, useCart } from "@/lib/stores/cartStore";
 import { favoritesStore, useFavorites } from "@/lib/stores/favoritesStore";
-import { recentlyViewedStore, type RecentlyViewedProduct } from "@/lib/stores/recentlyViewedStore";
+import {
+  recentlyViewedStore,
+  type RecentlyViewedProduct,
+} from "@/lib/stores/recentlyViewedStore";
 import { useAuth } from "@/lib/auth";
 import { authFetch } from "@/lib/api";
 
@@ -451,7 +454,11 @@ function RecentlyViewedSection({ items }: { items: RecentlyViewedProduct[] }) {
                 <p
                   className={`text-[11px] font-semibold leading-none ${item.isIndicativePrice ? "text-accent" : "text-brand"}`}
                 >
-                  {displayPrice.toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MZN
+                  {displayPrice.toLocaleString("pt-PT", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  MZN
                 </p>
               </div>
             </Link>
@@ -473,7 +480,9 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
   const { user } = useAuth();
 
   /* ── Recently viewed ────────────────────────────────────────────────── */
-  const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedProduct[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedProduct[]>(
+    [],
+  );
 
   useEffect(() => {
     const thumb =
@@ -489,7 +498,9 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
       imageUrl: thumb,
       basePrice: Number(product.basePrice),
       hasDiscount: product.hasDiscount,
-      discountPrice: product.discountPrice ? Number(product.discountPrice) : null,
+      discountPrice: product.discountPrice
+        ? Number(product.discountPrice)
+        : null,
       isIndicativePrice: product.isIndicativePrice,
     };
 
@@ -502,7 +513,7 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
         body: JSON.stringify({ productId: product.id }),
       }).catch(() => {});
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id]);
 
   /* ── Unique colors from variants ─────────────────────────────────────── */
@@ -687,14 +698,18 @@ export function ProductDetailClient({ product }: { product: ProductDetail }) {
           {(discountPercent !== null || isIndicativePrice) && (
             <div className="absolute top-0 left-0 z-10 flex flex-col gap-1">
               {discountPercent !== null && (
-                <span className="px-2.5 py-1 text-xxs font-bold text-white bg-brand leading-none">
-                  -{discountPercent}%
-                </span>
+                <div className="px-2.5 py-1.5 bg-white/80 backdrop-blur-sm">
+                  <span className="block text-sm tracking-[0.2em] uppercase font-bold text-brand leading-none">
+                    -{discountPercent}%
+                  </span>
+                </div>
               )}
               {isIndicativePrice && (
-                <span className="px-2.5 py-1 text-xxs font-bold text-white bg-accent leading-none">
-                  Preço indicativo
-                </span>
+                <div className="px-2.5 py-1.5 bg-white/80 backdrop-blur-sm">
+                  <span className="block text-sm tracking-[0.2em] uppercase font-semibold text-accent leading-none">
+                    indicativo
+                  </span>
+                </div>
               )}
             </div>
           )}
