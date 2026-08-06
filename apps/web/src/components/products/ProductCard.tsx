@@ -127,9 +127,11 @@ export function ProductCard({
         {/* Tags — flush to top-left corner, stacked vertically */}
         <div className="absolute top-0 left-0 flex flex-col pointer-events-none">
           {product.isIndicativePrice && (
-            <span className="text-[10px] font-normal text-primary bg-transparent px-[16px] py-2 leading-tight rounded-tl-[5px] tracking-[0.2px] backdrop-blur-[2px]">
-              Preço indicativo
-            </span>
+            <div className="mt-0 ml-0 px-2.5 py-1.5 rounded-tl-[5px] bg-white/80 backdrop-blur-sm">
+              <span className="block text-[9px] tracking-[0.2em] uppercase font-semibold text-accent leading-none">
+                indicativo
+              </span>
+            </div>
           )}
           {/* {product.hasDiscount && discountPrice !== null && (
             <span className="text-[10px] font-bold text-white bg-brand/80 px-3 py-[2px] leading-tight tracking-[0.2px] backdrop-blur-[2px]">
