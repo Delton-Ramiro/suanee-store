@@ -369,7 +369,9 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
     handler: async (req, reply) => {
       const rows = await prisma.productRelated.findMany({
         where: { sourceId: req.params.id },
+        orderBy: { position: "asc" },
         select: {
+          position: true,
           target: {
             select: {
               id: true,
@@ -386,20 +388,20 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
           },
         },
       });
-      return reply.send(rows.map((r) => r.target));
+      return reply.send(rows.map((r) => ({ ...r.target, position: r.position })));
     },
   });
 
-  // PUT /admin/products/:id/related — replace all related products
+  // PUT /admin/products/:id/related — replace all related products (ordered)
   fastify.put<{
     Params: { id: string };
-    Body: { relatedProductIds: string[] };
+    Body: { items: { productId: string; position: number }[] };
   }>("/:id/related", {
     preHandler: [fastify.requirePermission(Permissions.PRODUCTS_EDIT)],
     schema: {
       tags: ["Admin Products"],
       security: [{ bearerAuth: [] }],
-      description: "Replace the full list of 'also like' related products.",
+      description: "Replace the full ordered list of 'also like' related products.",
       params: {
         type: "object",
         required: ["id"],
@@ -407,37 +409,136 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
       },
       body: {
         type: "object",
-        required: ["relatedProductIds"],
+        required: ["items"],
         properties: {
-          relatedProductIds: {
+          items: {
             type: "array",
-            items: { type: "string", format: "uuid" },
+            items: {
+              type: "object",
+              required: ["productId", "position"],
+              properties: {
+                productId: { type: "string", format: "uuid" },
+                position: { type: "integer" },
+              },
+            },
           },
         },
       },
       response: {
-        200: {
-          description: "OK",
-          type: "object",
-          properties: { count: { type: "integer" } },
-        },
+        200: { description: "OK", type: "object", properties: { count: { type: "integer" } } },
       },
     },
     handler: async (req, reply) => {
       const { id } = req.params;
-      const ids = req.body.relatedProductIds.filter((rid) => rid !== id); // no self-reference
+      const items = req.body.items.filter((i) => i.productId !== id);
       await prisma.$transaction([
         prisma.productRelated.deleteMany({ where: { sourceId: id } }),
-        ...(ids.length > 0
+        ...(items.length > 0
           ? [
               prisma.productRelated.createMany({
-                data: ids.map((targetId) => ({ sourceId: id, targetId })),
+                data: items.map((i) => ({ sourceId: id, targetId: i.productId, position: i.position })),
                 skipDuplicates: true,
               }),
             ]
           : []),
       ]);
-      return reply.send({ count: ids.length });
+      return reply.send({ count: items.length });
+    },
+  });
+
+  // GET /admin/products/:id/shown-with — ordered list of "shown here with" products
+  fastify.get<{ Params: { id: string } }>("/:id/shown-with", {
+    preHandler: [fastify.requirePermission(Permissions.PRODUCTS_VIEW)],
+    schema: {
+      tags: ["Admin Products"],
+      security: [{ bearerAuth: [] }],
+      description: "List products shown here with this product, ordered by position.",
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string", format: "uuid" } },
+      },
+      response: {
+        200: { description: "Shown-with products", type: "array", items: { type: "object" } },
+      },
+    },
+    handler: async (req, reply) => {
+      const rows = await prisma.productShownWith.findMany({
+        where: { sourceId: req.params.id },
+        orderBy: { position: "asc" },
+        select: {
+          position: true,
+          target: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              basePrice: true,
+              brand: { select: { id: true, name: true } },
+              media: {
+                where: { isPrimary: true, isDeleted: false } as never,
+                take: 1,
+                select: { url: true, mediaType: true },
+              },
+            },
+          },
+        },
+      });
+      return reply.send(rows.map((r) => ({ ...r.target, position: r.position })));
+    },
+  });
+
+  // PUT /admin/products/:id/shown-with — replace full ordered list
+  fastify.put<{
+    Params: { id: string };
+    Body: { items: { productId: string; position: number }[] };
+  }>("/:id/shown-with", {
+    preHandler: [fastify.requirePermission(Permissions.PRODUCTS_EDIT)],
+    schema: {
+      tags: ["Admin Products"],
+      security: [{ bearerAuth: [] }],
+      description: "Replace the full ordered list of 'shown here with' products.",
+      params: {
+        type: "object",
+        required: ["id"],
+        properties: { id: { type: "string", format: "uuid" } },
+      },
+      body: {
+        type: "object",
+        required: ["items"],
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["productId", "position"],
+              properties: {
+                productId: { type: "string", format: "uuid" },
+                position: { type: "integer" },
+              },
+            },
+          },
+        },
+      },
+      response: {
+        200: { description: "OK", type: "object", properties: { count: { type: "integer" } } },
+      },
+    },
+    handler: async (req, reply) => {
+      const { id } = req.params;
+      const items = req.body.items.filter((i) => i.productId !== id);
+      await prisma.$transaction([
+        prisma.productShownWith.deleteMany({ where: { sourceId: id } }),
+        ...(items.length > 0
+          ? [
+              prisma.productShownWith.createMany({
+                data: items.map((i) => ({ sourceId: id, targetId: i.productId, position: i.position })),
+                skipDuplicates: true,
+              }),
+            ]
+          : []),
+      ]);
+      return reply.send({ count: items.length });
     },
   });
 
@@ -523,6 +624,7 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
           isVisible: { type: "boolean", default: true },
           keyCharacteristics: { type: "string", nullable: true },
           productInfo: { type: "string", nullable: true },
+          safetyInfo: { type: "string", nullable: true },
           sendPolicy: { type: "string", nullable: true },
           sizeAndFit: { type: "string", nullable: true },
           returnPolicy: { type: "string", nullable: true },
@@ -785,6 +887,7 @@ export default async function adminProductsRoutes(fastify: FastifyInstance) {
           isVisible: { type: "boolean" },
           keyCharacteristics: { type: "string", nullable: true },
           productInfo: { type: "string", nullable: true },
+          safetyInfo: { type: "string", nullable: true },
           sendPolicy: { type: "string", nullable: true },
           sizeAndFit: { type: "string", nullable: true },
           returnPolicy: { type: "string", nullable: true },

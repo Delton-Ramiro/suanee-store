@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import TextInput from "@/components/ui/TextInput";
 import Toggle from "@/components/ui/Toggle";
 import DateTimePicker from "@/components/ui/DateTimePicker";
@@ -37,6 +38,7 @@ export default function TopBarFormModal({
   const [timerDeadline, setTimerDeadline] = useState<Date | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -92,6 +94,7 @@ export default function TopBarFormModal({
   }
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -210,12 +213,12 @@ export default function TopBarFormModal({
           {isEdit && onDelete ? (
             <button
               type="button"
-              onClick={handleDelete}
+              onClick={() => setConfirmOpen(true)}
               disabled={deleting}
               className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold font-figtree text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Trash2 size={15} />
-              {deleting ? "A eliminar…" : "Eliminar"}
+              Eliminar
             </button>
           ) : (
             <span />
@@ -239,5 +242,16 @@ export default function TopBarFormModal({
         </div>
       </form>
     </Modal>
+
+    <ConfirmModal
+      open={confirmOpen}
+      onCancel={() => setConfirmOpen(false)}
+      onConfirm={async () => {
+        setConfirmOpen(false);
+        await handleDelete();
+      }}
+      loading={deleting}
+    />
+    </>
   );
 }

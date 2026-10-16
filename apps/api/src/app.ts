@@ -32,6 +32,7 @@ import adminMediaRoutes from "./modules/admin/media/routes.js";
 import adminSearchRoutes from "./modules/admin/search/routes.js";
 import adminPopupModalsRoutes from "./modules/admin/popup-modals/routes.js";
 import adminTopBarsRoutes from "./modules/admin/top-bars/routes.js";
+import adminPickPointsRoutes from "./modules/admin/pick-points/routes.js";
 
 // Client routes
 import clientAuthRoutes from "./modules/client/auth/routes.js";
@@ -45,6 +46,8 @@ import clientChatsRoutes from "./modules/client/chats/routes.js";
 import clientMediaRoutes from "./modules/client/media/routes.js";
 import clientAnalyticsRoutes from "./modules/client/analytics/routes.js";
 import clientUsersRoutes from "./modules/client/users/routes.js";
+import clientPickPointsRoutes from "./modules/client/pick-points/routes.js";
+import clientRecentlyViewedRoutes from "./modules/client/recently-viewed/routes.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -159,6 +162,9 @@ export async function buildApp() {
     prefix: `${API}/admin/popup-modals`,
   });
   await app.register(adminTopBarsRoutes, { prefix: `${API}/admin/top-bars` });
+  await app.register(adminPickPointsRoutes, {
+    prefix: `${API}/admin/pick-points`,
+  });
 
   // ── Client routes ─────────────────────────────────────────────────────────
   await app.register(clientAuthRoutes, { prefix: `${API}/auth` });
@@ -172,6 +178,8 @@ export async function buildApp() {
   await app.register(clientMediaRoutes, { prefix: `${API}/media` });
   await app.register(clientAnalyticsRoutes, { prefix: `${API}/analytics` });
   await app.register(clientUsersRoutes, { prefix: `${API}/users` });
+  await app.register(clientPickPointsRoutes, { prefix: `${API}/pick-points` });
+  await app.register(clientRecentlyViewedRoutes, { prefix: `${API}/recently-viewed` });
 
   // Attach Socket.io
   initSocket(app.server);

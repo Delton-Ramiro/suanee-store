@@ -332,6 +332,7 @@ export default async function adminOrderRoutes(fastify: FastifyInstance) {
             },
           },
           processedBy: { select: { id: true, name: true } },
+          pickPoint: { select: { id: true, name: true, province: true, address: true } },
         },
       });
       if (!order) return reply.status(404).send({ error: "Order not found" });

@@ -49,23 +49,25 @@ export function DrawerPanel({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-8 pb-4 shrink-0 border-b border-border-light">
-          <h2 className="text-base font-semibold text-brand">{title}</h2>
+          <h2 className="text-[11px] tracking-[0.25em] uppercase font-semibold text-brand">
+            {title}
+          </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="text-brand hover:opacity-60 transition-opacity"
+            className="text-brand hover:opacity-50 transition-opacity"
           >
-            <X size={20} strokeWidth={1.5} />
+            <X size={18} strokeWidth={1.5} />
           </button>
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-2">{children}</div>
 
         {/* Optional footer */}
         {footer && (
-          <div className="shrink-0 border-t border-border-light px-6 py-4 bg-white">
+          <div className="shrink-0 border-t border-border-light px-6 py-5 bg-white">
             {footer}
           </div>
         )}
@@ -78,24 +80,16 @@ export function DrawerPanel({
 
 type DrawerItemRowProps = {
   imageUrl?: string | null;
-  /** Wraps the thumbnail in an anchor if provided */
   imageHref?: string;
   onImageClick?: () => void;
   name: string;
-  /** Wraps the name in an anchor if provided */
   nameHref?: string;
   onNameClick?: () => void;
+  brandName?: string;
   price: string;
-  /** Shown struck-through next to price (discount scenario) */
   originalPrice?: string;
-  /** Renders "~ " prefix on price */
   indicativePrice?: boolean;
-  /**
-   * Short descriptive chips joined by " · "
-   * e.g. ["Lacoste", "Azul", "M", "× 2"]
-   */
   meta?: (string | null | undefined)[];
-  /** Slot rendered below meta (qty stepper, delete, etc.) */
   actions?: ReactNode;
 };
 
@@ -106,6 +100,7 @@ export function DrawerItemRow({
   name,
   nameHref,
   onNameClick,
+  brandName,
   price,
   originalPrice,
   indicativePrice,
@@ -115,11 +110,11 @@ export function DrawerItemRow({
   const filteredMeta = (meta ?? []).filter(Boolean) as string[];
 
   const thumb = (
-    <div className="w-[64px] h-[80px] shrink-0 rounded-sm bg-muted-bg overflow-hidden">
+    <div className="w-16 h-20 shrink-0 overflow-hidden bg-muted-bg">
       {imageUrl ? (
         <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full bg-muted-bg" />
+        <div className="w-full h-full bg-border" />
       )}
     </div>
   );
@@ -133,20 +128,14 @@ export function DrawerItemRow({
       {name}
     </Link>
   ) : (
-    <p className="text-sm font-medium text-brand leading-snug line-clamp-2">
-      {name}
-    </p>
+    <p className="text-sm font-medium text-brand leading-snug line-clamp-2">{name}</p>
   );
 
   return (
-    <div className="flex gap-3 py-3 border-b border-border-light last:border-0">
+    <div className="flex gap-4 py-5 border-b border-border-light/60 last:border-0">
       {/* Thumbnail */}
       {imageHref ? (
-        <Link
-          href={imageHref}
-          onClick={onImageClick}
-          className="shrink-0 hover:opacity-80 transition-opacity"
-        >
+        <Link href={imageHref} onClick={onImageClick} className="shrink-0 hover:opacity-80 transition-opacity">
           {thumb}
         </Link>
       ) : (
@@ -154,32 +143,34 @@ export function DrawerItemRow({
       )}
 
       {/* Content */}
-      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-        {/* Name + price */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">{nameEl}</div>
-          <div className="shrink-0 text-right">
+      <div className="flex-1 min-w-0 flex flex-col justify-between">
+        <div>
+          {brandName && (
+            <p className="text-[10px] font-bold tracking-[0.15em] uppercase text-brand/60 mb-0.5">
+              {brandName}
+            </p>
+          )}
+          {nameEl}
+          {filteredMeta.length > 0 && (
+            <p className="text-[11px] text-text-muted mt-1">{filteredMeta.join(" · ")}</p>
+          )}
+        </div>
+
+        {/* Price + actions */}
+        <div className="flex items-start justify-between gap-3 mt-3">
+          <div className="flex-1 min-w-0">
+            {actions && <div>{actions}</div>}
+          </div>
+          <div className="text-right shrink-0">
             <p className="text-sm font-semibold text-brand">
               {indicativePrice ? "~ " : ""}
               {price}
             </p>
             {originalPrice && (
-              <p className="text-xs text-text-muted line-through">
-                {originalPrice}
-              </p>
+              <p className="text-[11px] text-text-muted line-through">{originalPrice}</p>
             )}
           </div>
         </div>
-
-        {/* Meta chips */}
-        {filteredMeta.length > 0 && (
-          <p className="text-xs font-bold text-brand/60 leading-relaxed">
-            {filteredMeta.join(" · ")}
-          </p>
-        )}
-
-        {/* Actions slot */}
-        {actions && <div className="mt-1">{actions}</div>}
       </div>
     </div>
   );
